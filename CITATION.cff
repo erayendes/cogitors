@@ -7,8 +7,8 @@ authors:
   - family-names: "Endes"
     given-names: "Eray"
     alias: "erayendes"
-repository-code: "https://github.com/erayendes/cogitor"
-url: "https://github.com/erayendes/cogitor"
+repository-code: "https://github.com/erayendes/cogitors"
+url: "https://github.com/erayendes/cogitors"
 license: MIT
 keywords:
   - multi-agent
