@@ -65,12 +65,10 @@ Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağ
                            ▼
 ┌──────────────────────────────────────────────────────┐
 │ Round 2: Yeniden Değerlendirme                       │
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Codex        │    │ Claude       │    │ Antigravity  │
-│ (Bağımsız)   │    │ (Bağımsız)   │    │ (Bağımsız)   │
-└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
-       │                   │                   │
-       └───────────────────┼───────────────────┘
+│ Codex               Claude              Antigravity  │
+│ (Bağımsız)          (Bağımsız)          (Bağımsız)   │
+└──────────────────────────────────────────────────────┘
+                           │
                            ▼
                ┌───────────────────────┐
                │ Round 3: Münazara &   │
