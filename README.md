@@ -1,7 +1,8 @@
 # Cogitor
 
-> *"The mind of the Cogitor is a vessel that has shed all fleshly distraction to seek truth through pure contemplation."*  
-> — Frank Herbert, *Dune*
+> “Sıradan algının gözleri uzağı göremez. Çoğu zaman en önemli kararlarımızı yalnızca yüzeysel bilgilere dayanarak alırız.”
+> "The eyes of common perception do not see far. Too often we make the most important decisions based only on superficial information."
+> — Cogitor Kwyna
 
 Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan okur ve tek bir gerekçeli karar üretir.  
 *Codex, Claude and Antigravity independently examine the same task, challenge each other across five rounds, and synthesize one supported decision.*
@@ -23,9 +24,10 @@ Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan
 
 Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde tek bir yapay zekaya danışmak risklidir: Model kendi halüsinasyonlarının, önyargılarının ve kör noktalarının farkına varamaz; hatalı varsayımlarını son derece özgüvenli bir üslupla savunabilir.
 
-**Cogitor**, sektörün önde gelen üç büyük model ailesini — **Codex (OpenAI)**, **Claude (Anthropic)** ve **Antigravity (Google)** — tek bir müzakere masasında bir araya getirir. Üç modele de aynı işin tamamı verilir. Dört tur boyunca bağımsız analiz yapar, birbirlerinin görüşlerini okur, itirazlara kanıtla yanıt verir ve beşinci turda başkan tek bir gerekçeli karar sentezler.
+**Cogitor**, önde gelen üç büyük model ailesini — **Codex (OpenAI)**, **Claude (Anthropic)** ve **Antigravity (Google)** — tek bir müzakere masasında bir araya getirir. Üç modele de aynı işin tamamı verilir. Dört tur boyunca bağımsız analiz yapar, birbirlerinin görüşlerini okur, itirazlara kanıtla yanıt verir ve beşinci turda başkan tek bir gerekçeli karar sentezler.
 
-> **En önemli ilke:** Görüş birliği (konsensüs) doğruluk kanıtı değildir. Makul ve gerekçeli azınlık görüşleri ile belirsizlikler bastırılmaz; nihai kararda aynen korunur.
+> **En önemli ilke:** Görüş birliği (konsensüs) doğruluk kanıtı değildir.
+> Makul ve gerekçeli azınlık görüşleri ile belirsizlikler bastırılmaz; nihai kararda aynen korunur.
 
 ---
 
@@ -59,10 +61,14 @@ Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağ
        │                   │                   │
        └───────────────────┼───────────────────┘
                            ▼
-               ┌───────────────────────┐
-               │ Round 2: Yeniden      │
-               │ Değerlendirme         │
-               └───────────┬───────────┘
+┌──────────────────────────────────────────────────────┐
+│ Round 2: Yeniden Değerlendirme                       │
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Codex        │    │ Claude       │    │ Antigravity  │
+│ (Bağımsız)   │    │ (Bağımsız)   │    │ (Bağımsız)   │
+└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
+       │                   │                   │
+       └───────────────────┼───────────────────┘
                            ▼
                ┌───────────────────────┐
                │ Round 3: Münazara &   │
@@ -93,12 +99,13 @@ Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağ
 Her oturum, projenizin `docs/cogitors-decisions/` dizini altında tarih ve konu slug'ı ile adlandırılmış bir klasörde saklanır:
 
 ```text
-docs/cogitors-decisions/20260926-175500-mimir-ui-sadelestirme/
-├── cogitor-antigravity-mimir-ui-sadelestirme.md
-├── cogitor-claude-mimir-ui-sadelestirme.md
-├── cogitor-codex-mimir-ui-sadelestirme.md
-├── cogitor-final-mimir-ui-sadelestirme.json
-└── cogitor-final-mimir-ui-sadelestirme.md
+<project-root>
+  docs/cogitors-decisions/20260926-175500-mimir-ui-sadelestirme/
+  ├── cogitor-antigravity-mimir-ui-sadelestirme.md
+  ├── cogitor-claude-mimir-ui-sadelestirme.md
+  ├── cogitor-codex-mimir-ui-sadelestirme.md
+  ├── cogitor-final-mimir-ui-sadelestirme.json
+  └── cogitor-final-mimir-ui-sadelestirme.md
 ```
 
 * **Arama Dostu:** IDE'nizde (`Cmd+P`) `cogitor final` veya `mimir codex` yazdığınızda doğrudan ilgili oturuma ve dosyaya ulaşırsınız.
