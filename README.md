@@ -273,7 +273,7 @@ The 41 unit tests verify round sequencing, host independence gates, slug extract
 
 ## Acknowledgments & Inspiration
 
-Named after the contemplative philosophers in Frank Herbert's *Dune*. Independent project inspired by [claude-council](https://github.com/hex/claude-council), [cc-debate](https://github.com/STRML/cc-debate), [LLM Council](https://github.com/karpathy/llm-council), and [CouncilKit](https://github.com/albertofettucini/CouncilKit).
+Named after the contemplative philosophers in Frank Herbert's *Dune*. 
 
 ---
 
