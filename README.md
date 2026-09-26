@@ -1,7 +1,9 @@
 # Cogitor
 
 > “Sıradan algının gözleri uzağı göremez. Çoğu zaman en önemli kararlarımızı yalnızca yüzeysel bilgilere dayanarak alırız.”
+> 
 > "The eyes of common perception do not see far. Too often we make the most important decisions based only on superficial information."
+>
 > — Cogitor Kwyna
 
 Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan okur ve tek bir gerekçeli karar üretir.  
