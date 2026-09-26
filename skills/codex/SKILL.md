@@ -9,7 +9,7 @@ Run the user's task with Codex only. Do not start a council or delegate recursiv
 
 If the current host is already the requested Codex instance, perform the task here unless the user requests a separate process, independent context or a different model/account. Never claim the current host changed model when it did not.
 
-For an external call, read [execution](references/execution.md). Create a one-job JSON manifest with `agent: codex`, the absolute project `cwd`, concise full task `prompt`, and `access: review` unless edits are authorized. Pass `model`/`effort` only when selected; otherwise inherit existing settings. Run the bundled `scripts/run.py` through Python. In a repository checkout, use `../cogitor/scripts/run.py` and `../cogitor/references/execution.md`; standalone packages contain their own copies.
+For an external call, read [execution](references/execution.md). Create a one-job JSON manifest with `agent: codex`, the absolute project `cwd`, concise full task `prompt`, and `access: review` unless edits are authorized. Pass `model`/`effort` only when selected; otherwise inherit existing settings. Run the bundled `scripts/run.py` through Python. In a repository checkout, use `../cogitors/scripts/run.py` and `../cogitors/references/execution.md`; standalone packages contain their own copies.
 
 Require installed/authenticated `codex`; report missing access without changing settings or providers. The adapter uses literal stdin, structured output, bounded execution and retained results. Do not replace it with shell-interpolated prompt text or bypass flags.
 

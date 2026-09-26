@@ -1,9 +1,9 @@
 ---
-name: cogitor
-description: Use when the user invokes /cogitor or requests a joint deliberation by Codex, Claude and Antigravity. Not for a single-agent task or ordinary mentions of these products.
+name: cogitors
+description: Use when the user invokes /cogitors or /cogitor, or requests a joint deliberation by Codex, Claude and Antigravity. Not for a single-agent task or ordinary mentions of these products.
 ---
 
-# Cogitor
+# The Cogitors
 
 Three real participants perform the same complete task, reconsider, debate, finalize their views, and return one synthesis. The invoking host is both chair and advisor; it is not a fourth participant. Requires a Codex, Claude or Antigravity shell host, Python 3.9+ on macOS/Linux, and the other two authenticated CLIs.
 
@@ -11,7 +11,7 @@ Three real participants perform the same complete task, reconsider, debate, fina
 
 Read [workflow](references/workflow.md) to operate `scripts/cogitor.py`. It enforces round order, records separate advisor files, rejects repeat dispatches and supplies the actual final views to synthesis. Read [execution](references/execution.md) for CLI settings and permission limits. Packaged single-agent skills use the same adapter.
 
-For `/cogitor Review this proposal`, give all three the entire review, not complementary specialties. Preserve the user's scope, language, selected models/effort and budget. Only chair and advisor are roles. Do not replace an unavailable tool with another provider or fabricate its view.
+For `/cogitors Review this proposal`, give all three the entire review, not complementary specialties. Preserve the user's scope, language, selected models/effort and budget. Only chair and advisor are roles. Do not replace an unavailable tool with another provider or fabricate its view.
 
 Use one immutable brief and snapshot the relevant source files. Do not include secrets or unrelated chat history. Announce chair, participants and any explicit model/effort selections. Unspecified settings are inherited. Current host settings cannot be changed by the runner. Run `check` before dispatch; follow the execution reference's explicit host-approval procedure if runtime or credential access is blocked. A missing session inside a sandbox is not proof the user logged out.
 

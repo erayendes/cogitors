@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "cogitor" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "cogitors" / "scripts"
 
 
 class CogitorCheck(unittest.TestCase):

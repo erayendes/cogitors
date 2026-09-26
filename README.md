@@ -1,4 +1,4 @@
-# Cogitor
+# The Cogitors
 
 > “Sıradan algının gözleri uzağı göremez. Çoğu zaman en önemli kararlarımızı yalnızca yüzeysel bilgilere dayanarak alırız.”
 > 
@@ -18,15 +18,15 @@ Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan
   <a href="https://agentskills.io"><img alt="Agent Skills" src="https://img.shields.io/badge/Agent%20Skills-compatible-purple.svg"></a>
 </p>
 
-🇹🇷 [Türkçe](#cogitor-t%C3%BCrk%C3%A7e) · 🇬🇧 [English](#cogitor-english)
+🇹🇷 [Türkçe](#the-cogitors-t%C3%BCrk%C3%A7e) · 🇬🇧 [English](#the-cogitors-english)
 
 ---
 
-# Cogitor (Türkçe)
+# The Cogitors (Türkçe)
 
 Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde tek bir yapay zekaya danışmak risklidir: Model kendi halüsinasyonlarının, önyargılarının ve kör noktalarının farkına varamaz; hatalı varsayımlarını son derece özgüvenli bir üslupla savunabilir.
 
-**Cogitor**, önde gelen üç büyük model ailesini — **Codex (OpenAI)**, **Claude (Anthropic)** ve **Antigravity (Google)** — tek bir müzakere masasında bir araya getirir. Üç modele de aynı işin tamamı verilir. Dört tur boyunca bağımsız analiz yapar, birbirlerinin görüşlerini okur, itirazlara kanıtla yanıt verir ve beşinci turda başkan tek bir gerekçeli karar sentezler.
+**The Cogitors**, sektörün önde gelen üç büyük model ailesini — **Codex (OpenAI)**, **Claude (Anthropic)** ve **Antigravity (Google)** — tek bir müzakere masasında bir araya getirir. Üç modele de aynı işin tamamı verilir. Dört tur boyunca bağımsız analiz yapar, birbirlerinin görüşlerini okur, itirazlara kanıtla yanıt verir ve beşinci turda başkan tek bir gerekçeli karar sentezler.
 
 > **En önemli ilke:** Görüş birliği (konsensüs) doğruluk kanıtı değildir.
 > Makul ve gerekçeli azınlık görüşleri ile belirsizlikler bastırılmaz; nihai kararda aynen korunur.
@@ -40,7 +40,7 @@ Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde t
 | `/codex <görev>` | Yalnızca Codex çağrılır. |
 | `/claude <görev>` | Yalnızca Claude Code çağrılır. |
 | `/antigravity <görev>` | Yalnızca Antigravity çağrılır. |
-| `/cogitor <görev>` | Üç ajan birlikte 5 turlu müzakere protokolünü yürütür. |
+| `/cogitors <görev>` | Üç ajan birlikte 5 turlu müzakere protokolünü yürütür. |
 
 Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağrılarıdır. Oturumu başlatan ajan oturuma başkanlık eder **ve müzakereye bizzat katılır**; fazladan dördüncü bir kopya model çalıştırılmaz.
 
@@ -126,7 +126,7 @@ Dört bağımsız skill paketini derlemek için:
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-Bu komut `dist/` klasörü altına kurulabilir 4 klasör (`cogitor`, `codex`, `claude`, `antigravity`) ve her birinin `.skill` zip arşivini üretir.
+Bu komut `dist/` klasörü altına kurulabilir 4 klasör (`cogitors`, `codex`, `claude`, `antigravity`) ve her birinin `.skill` zip arşivini üretir.
 
 ### Yükleme Konumları
 Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalamanız yeterlidir:
@@ -143,7 +143,7 @@ Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalamanız y
 ## Kullanım Örnekleri
 
 ```text
-/cogitor Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
+/cogitors Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
 /codex Kimlik doğrulama akışındaki açıkları kod değiştirmeden listele.
 /claude Bu PR diff'indeki performans darboğazlarını analiz et.
 /antigravity Bu teknik şartnamede çelişen maddeleri bul.
@@ -172,11 +172,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 ---
 
-# Cogitor (English)
+# The Cogitors (English)
 
 When a critical architecture choice, security review, or product decision is on the line, consulting a single AI model is risky: a solitary model cannot see its own blind spots, hallucinations, or biases, often defending flawed premises with persuasive confidence.
 
-**Cogitor** convenes the industry's three leading frontier models — **Codex (OpenAI)**, **Claude (Anthropic)**, and **Antigravity (Google)** — around a single deliberative table. Each participant receives the entire task. Across four rounds they analyze independently, critique peer positions, address objections with evidence, and in round five the chair synthesizes one defensible decision.
+**The Cogitors** convenes the industry's three leading frontier models — **Codex (OpenAI)**, **Claude (Anthropic)**, and **Antigravity (Google)** — around a single deliberative table. Each participant receives the entire task. Across four rounds they analyze independently, critique peer positions, address objections with evidence, and in round five the chair synthesizes one defensible decision.
 
 > **Core Principle:** Consensus is not proof of correctness. Reasoned minority opinions and explicit uncertainties are never suppressed; they are preserved in the final synthesis.
 
@@ -189,7 +189,7 @@ When a critical architecture choice, security review, or product decision is on 
 | `/codex <task>` | Codex only. |
 | `/claude <task>` | Claude Code only. |
 | `/antigravity <task>` | Antigravity only. |
-| `/cogitor <task>` | All three participants, using the five-round protocol. |
+| `/cogitors <task>` | All three participants, using the five-round protocol. |
 
 These are skill invocations conforming to the **Agent Skills** specification. The invoking agent chairs the session **and participates**; no fourth phantom model is launched.
 
@@ -237,7 +237,7 @@ To package all four self-contained skills:
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-This outputs four ready-to-install folders (`cogitor`, `codex`, `claude`, `antigravity`) and their `.skill` ZIP archives in `dist/`.
+This outputs four ready-to-install folders (`cogitors`, `codex`, `claude`, `antigravity`) and their `.skill` ZIP archives in `dist/`.
 
 ### Installation Paths
 

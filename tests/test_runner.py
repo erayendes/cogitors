@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import patch
 
 
-RUNNER = Path(__file__).resolve().parents[1] / "skills/cogitor/scripts/run.py"
+RUNNER = Path(__file__).resolve().parents[1] / "skills/cogitors/scripts/run.py"
 FAKE = r'''
 import json, os, pathlib, subprocess, sys, time
 agent = pathlib.Path(sys.argv[0]).name

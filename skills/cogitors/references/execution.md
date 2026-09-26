@@ -1,12 +1,12 @@
 # Shared CLI execution
 
-The packaged skills contain the same `scripts/run.py` adapter. In a source checkout it lives at `skills/cogitor/scripts/run.py`; the packager copies it and this reference into each standalone bundle. No other skill must be installed to use a single-agent bundle.
+The packaged skills contain the same `scripts/run.py` adapter. In a source checkout it lives at `skills/cogitors/scripts/run.py`; the packager copies it and this reference into each standalone bundle. No other skill must be installed to use a single-agent bundle.
 
 Requirements: Python 3.9+, macOS/Linux, an installed authenticated CLI for the selected external participant, and the host's normal network/credential access. Preserve the current account and environment. Do not install software, alter global settings, log in to another account or switch to a separately billed API without authorization.
 
 ## Check the actual execution context first
 
-Run `python3 scripts/run.py --check /path/job.json` before a standalone call. Cogitor uses `python3 scripts/cogitor.py check RUN_DIR`. Neither calls a model. Both execution entrypoints repeat this check before starting model processes: CLI presence, Codex/Claude login visibility, and Antigravity's local-port and runtime-log access. This checks startup prerequisites, not model availability, quota or answer quality.
+Run `python3 scripts/run.py --check /path/job.json` before a standalone call. The Cogitors uses `python3 scripts/cogitor.py check RUN_DIR`. Neither calls a model. Both execution entrypoints repeat this check before starting model processes: CLI presence, Codex/Claude login visibility, and Antigravity's local-port and runtime-log access. This checks startup prerequisites, not model availability, quota or answer quality.
 
 In a restricted host, `operation not permitted`, a denied localhost bind, or `Not logged in` can mean the host sandbox hides an existing session. Request the host's normal approval to run the **exact check command** outside that sandbox. In Codex's execution tool, use `sandbox_permissions: require_escalated` with an explicit justification. If the approved check passes, request the same execution scope for the exact `dispatch` or standalone runner command. Permission does not carry over merely because a previous check succeeded. Never request a blanket Python/shell approval or change global sandbox settings; retain the provider's `--sandbox`/planning flags.
 
@@ -46,4 +46,4 @@ Use the host's background mechanism for long calls. Stdout returns paths and sta
 
 Command forms were checked with local help for codex-cli 0.156.1, Claude Code 2.1.281 and agy 1.2.11. Live provider/model availability is not implied. Inspect local help once on incompatibility. Do not add approval/sandbox bypass flags. Claude plan and Antigravity plan are not interchangeable OS read-only guarantees; any host exception needs the explicit approval above. Do not combine Antigravity plan with `--disable-slash-commands`. `--bare` is not a generic token-saving flag: it changes authentication behavior.
 
-Timeout/interruption terminates only the launcher's own process groups. Already-started remote work or detached tools are not guaranteed cancelled. Retain successes, report failures and do not automatically resubmit. If a follow-up is explicitly requested, use this job's recorded ID with the CLI's documented resume command, never `--last`/`--continue`. Cogitor's rounds use fresh bounded prompts instead.
+Timeout/interruption terminates only the launcher's own process groups. Already-started remote work or detached tools are not guaranteed cancelled. Retain successes, report failures and do not automatically resubmit. If a follow-up is explicitly requested, use this job's recorded ID with the CLI's documented resume command, never `--last`/`--continue`. The Cogitors' rounds use fresh bounded prompts instead.

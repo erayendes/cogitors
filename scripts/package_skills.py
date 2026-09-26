@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 
 
-NAMES = ("cogitor", "codex", "claude", "antigravity")
+NAMES = ("cogitors", "codex", "claude", "antigravity")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9-]{1,64}$")
 EXTENSIONS = {".md", ".py", ".yaml"}
 SHARED = ("scripts/run.py", "references/execution.md")
@@ -85,16 +85,16 @@ def package(source, output):
         bundles[name] = collect(source / "skills" / name)
         validate_skill(name, bundles[name])
     for relative in SHARED:
-        if relative not in bundles["cogitor"]:
-            raise ValueError("cogitor is missing {}".format(relative))
+        if relative not in bundles["cogitors"]:
+            raise ValueError("cogitors is missing {}".format(relative))
         for name in NAMES[1:]:
             if relative in bundles[name]:
                 raise ValueError("{} must use the shared {}".format(name, relative))
-            bundles[name][relative] = bundles["cogitor"][relative]
+            bundles[name][relative] = bundles["cogitors"][relative]
 
     output_parent = output.parent if output.parent.exists() else output
     output_parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".cogitor-pkg-", dir=output_parent)).resolve()
+    staging = Path(tempfile.mkdtemp(prefix=".cogitors-pkg-", dir=output_parent)).resolve()
     try:
         summary = {"folders": [], "archives": []}
         for name, files in bundles.items():

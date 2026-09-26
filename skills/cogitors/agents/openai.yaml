@@ -1,0 +1,4 @@
+interface:
+  display_name: "The Cogitors"
+  short_description: "Five-round deliberation with three real agents"
+  default_prompt: "Use $cogitors to independently review this proposal with Codex, Claude and Antigravity, debate the findings and return one supported answer."

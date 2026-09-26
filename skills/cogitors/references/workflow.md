@@ -1,6 +1,6 @@
 # Host-assisted workflow
 
-Cogitor is a skill, not a new model service. The host supplies its own four advisor contributions and final synthesis. The script calls only the other two CLIs, at most once per advisor per round: at most eight external invocations, plus the host's work. Model-internal tool turns are not covered by this invocation count.
+The Cogitors is a skill, not a new model service. The host supplies its own four advisor contributions and final synthesis. The script calls only the other two CLIs, at most once per advisor per round: at most eight external invocations, plus the host's work. Model-internal tool turns are not covered by this invocation count.
 
 Use the actual installed script path. A shell that supports background jobs lets the host work while the other advisors run. `check`, `status`, `init`, `record`, `advance` and `finish` never call a model. Only `dispatch` does. Do not directly run a round's jobs through the single-call adapter; that would bypass the no-repeat gate.
 
@@ -9,7 +9,7 @@ Use the actual installed script path. A shell that supports background jobs lets
 Write the full assignment to a UTF-8 brief through the host's file tool. Include purpose, exact scope, allowed changes, expected deliverable and evidence requirements. The brief and selected source files form the shared snapshot. Select all relevant source files with repeated `--source`; uncaptured workspace files are not integrity-checked. All advisors still receive the complete task.
 
 ```sh
-python3 /actual/cogitor/scripts/cogitor.py init /path/brief.md \
+python3 /actual/cogitors/scripts/cogitor.py init /path/brief.md \
   --chair codex --cwd /path/project --source /path/project/proposal.md
 ```
 
@@ -25,7 +25,7 @@ Optional `--options /path/options.json` supplies external advisor settings, for 
 {"claude": {"model": "opus", "effort": "high"}, "antigravity": {"effort": "medium"}}
 ```
 
-Use model IDs/aliases supported by the installed CLI and account. The example is not a model entitlement guarantee. No model list is hardcoded. Overrides for the current chair are rejected: choose the host model in the host before invoking Cogitor. Unsupported settings fail without another paid attempt or fallback.
+Use model IDs/aliases supported by the installed CLI and account. The example is not a model entitlement guarantee. No model list is hardcoded. Overrides for the current chair are rejected: choose the host model in the host before invoking The Cogitors. Unsupported settings fail without another paid attempt or fallback.
 
 ## 2. Repeat advisor rounds 1–4
 
@@ -40,15 +40,15 @@ First run `check RUN_DIR` in the context intended for dispatch. Follow [executio
 Tell the user when each round starts and completes. If `advance` returns `awaiting-partial-decision`, report the round as paused, name the failed advisor and stop for the user's choice:
 
 ```sh
-python3 /actual/cogitor/scripts/cogitor.py continue-partial /path/run
+python3 /actual/cogitors/scripts/cogitor.py continue-partial /path/run
 ```
 
 Choosing stop means running no further command; the paused artifacts remain available. Continuing never retries the failed call. Starting a new run with a longer `--timeout` is a separate paid run and requires explicit authorization.
 
 ```sh
-python3 /actual/cogitor/scripts/cogitor.py dispatch /path/run
-python3 /actual/cogitor/scripts/cogitor.py record /path/run --file /path/host-answer.md
-python3 /actual/cogitor/scripts/cogitor.py advance /path/run
+python3 /actual/cogitors/scripts/cogitor.py dispatch /path/run
+python3 /actual/cogitors/scripts/cogitor.py record /path/run --file /path/host-answer.md
+python3 /actual/cogitors/scripts/cogitor.py advance /path/run
 ```
 
 The shell snippet shows command forms; start `dispatch` with the host's background mechanism so the chair can work concurrently. Every invocation uses a fresh external session and bounded supplied context. Do not resume an account's latest session.
@@ -71,7 +71,7 @@ After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the 
 ```
 
 ```sh
-python3 /actual/cogitor/scripts/cogitor.py finish /path/run --file /path/final.json
+python3 /actual/cogitors/scripts/cogitor.py finish /path/run --file /path/final.json
 ```
 
 `cogitor-final-<slug>.md` adds actual participation coverage. `complete` means all three finished, not that their claims are true; `partial` means fewer than three finished. Present one coherent output in the user's language, retaining the required distinctions, and provide the absolute `final` path returned by `finish`. Do not add a separate model call to write this synthesis.

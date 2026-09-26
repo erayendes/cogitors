@@ -9,7 +9,7 @@ Run the user's task with Claude Code only. Do not start a council or delegate re
 
 If the current host is already the requested Claude instance, perform the task here unless the user requests a separate process, independent context or a different model/account. Never claim the current host changed model when it did not.
 
-For an external call, read [execution](references/execution.md). Create a one-job JSON manifest with `agent: claude`, the absolute trusted project `cwd`, concise full task `prompt`, and `access: review` unless edits are authorized. Pass `model`/`effort` only when selected; otherwise inherit existing settings. Run the bundled `scripts/run.py` through Python. In a repository checkout, use `../cogitor/scripts/run.py` and `../cogitor/references/execution.md`; standalone packages contain their own copies.
+For an external call, read [execution](references/execution.md). Create a one-job JSON manifest with `agent: claude`, the absolute trusted project `cwd`, concise full task `prompt`, and `access: review` unless edits are authorized. Pass `model`/`effort` only when selected; otherwise inherit existing settings. Run the bundled `scripts/run.py` through Python. In a repository checkout, use `../cogitors/scripts/run.py` and `../cogitors/references/execution.md`; standalone packages contain their own copies.
 
 Require installed/authenticated `claude`; report missing access without changing settings or providers. The adapter uses literal stdin, structured output, bounded execution and retained results. Plan mode is not an OS sandbox; retain host restrictions. Do not add bypass flags or `--bare` as a cost shortcut.
 
