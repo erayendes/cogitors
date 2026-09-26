@@ -1,92 +1,276 @@
 # Cogitor
 
-Codex, Claude and Antigravity independently examine the same task, challenge each other, and produce one supported answer.
+> *"The mind of the Cogitor is a vessel that has shed all fleshly distraction to seek truth through pure contemplation."*  
+> — Frank Herbert, *Dune*
 
-[![Yerli üretim](https://img.shields.io/badge/%F0%9F%A4%9D-YERL%C4%B0%20%C3%9CRET%C4%B0M-red)](https://github.com/erayendes)
+Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan okur ve tek bir gerekçeli karar üretir.  
+*Codex, Claude and Antigravity independently examine the same task, challenge each other across five rounds, and synthesize one supported decision.*
 
-## Four skills, two levels
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+  <a href="https://milowda.com"><img alt="Yerli üretim" src="https://img.shields.io/badge/YERL%C4%B0%20%C3%9CRET%C4%B0M-red?style=flat&label=%F0%9F%A4%9D&color=red&link=https%3A%2F%2Fmilowda.com"></a>
+  <a href="https://github.com/erayendes/cogitor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/erayendes/cogitor/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python: 3.9+" src="https://img.shields.io/badge/python-3.9+-blue.svg">
+  <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-brightgreen.svg">
+  <a href="https://agentskills.io"><img alt="Agent Skills" src="https://img.shields.io/badge/Agent%20Skills-compatible-purple.svg"></a>
+</p>
+
+🇹🇷 [Türkçe](#cogitor-t%C3%BCrk%C3%A7e) · 🇬🇧 [English](#cogitor-english)
+
+---
+
+# Cogitor (Türkçe)
+
+Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde tek bir yapay zekaya danışmak risklidir: Model kendi halüsinasyonlarının, önyargılarının ve kör noktalarının farkına varamaz; hatalı varsayımlarını son derece özgüvenli bir üslupla savunabilir.
+
+**Cogitor**, sektörün önde gelen üç büyük model ailesini — **Codex (OpenAI)**, **Claude (Anthropic)** ve **Antigravity (Google)** — tek bir müzakere masasında bir araya getirir. Üç modele de aynı işin tamamı verilir. Dört tur boyunca bağımsız analiz yapar, birbirlerinin görüşlerini okur, itirazlara kanıtla yanıt verir ve beşinci turda başkan tek bir gerekçeli karar sentezler.
+
+> **En önemli ilke:** Görüş birliği (konsensüs) doğruluk kanıtı değildir. Makul ve gerekçeli azınlık görüşleri ile belirsizlikler bastırılmaz; nihai kararda aynen korunur.
+
+---
+
+## Dört Skill, İki Seviye
+
+| Çağrı | Davranış |
+|---|---|
+| `/codex <görev>` | Yalnızca Codex çağrılır. |
+| `/claude <görev>` | Yalnızca Claude Code çağrılır. |
+| `/antigravity <görev>` | Yalnızca Antigravity çağrılır. |
+| `/cogitor <görev>` | Üç ajan birlikte 5 turlu müzakere protokolünü yürütür. |
+
+Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağrılarıdır. Oturumu başlatan ajan oturuma başkanlık eder **ve müzakereye bizzat katılır**; fazladan dördüncü bir kopya model çalıştırılmaz.
+
+---
+
+## Beş Tur Protokolü
+
+```text
+               ┌───────────────────────┐
+               │    Kullanıcı Görevi   │
+               └───────────┬───────────┘
+                           │
+       ┌───────────────────┼───────────────────┐
+       ▼                   ▼                   ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Round 1:     │    │ Round 1:     │    │ Round 1:     │
+│ Codex        │    │ Claude       │    │ Antigravity  │
+│ (Bağımsız)   │    │ (Bağımsız)   │    │ (Bağımsız)   │
+└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
+       │                   │                   │
+       └───────────────────┼───────────────────┘
+                           ▼
+               ┌───────────────────────┐
+               │ Round 2: Yeniden      │
+               │ Değerlendirme         │
+               └───────────┬───────────┘
+                           ▼
+               ┌───────────────────────┐
+               │ Round 3: Münazara &   │
+               │ İtirazlar             │
+               └───────────┬───────────┘
+                           ▼
+               ┌───────────────────────┐
+               │ Round 4: Nihai        │
+               │ Pozisyonlar           │
+               └───────────┬───────────┘
+                           ▼
+               ┌───────────────────────┐
+               │ Round 5: Başkan       │
+               │ Sentezi (Tek Karar)   │
+               └───────────────────────┘
+```
+
+1. **Bağımsız Analiz:** Üç ajan da aynı görev ve kaynak dosyalar üzerinde analizini yapar; akran yanıtları bu turda gizlidir.
+2. **Yeniden Değerlendirme:** Ajanlar ilk turdaki akran görüşlerini okur; neyin değiştiğini veya neden değişmediğini gerekçeleriyle açıklar.
+3. **Münazara (Meydan Okuma):** İddialar somut kanıtlarla ve doğrudan sorularla test edilir.
+4. **Nihai Pozisyon:** İtirazlara cevap verilir ve son duruş belirlenir.
+5. **Sentez:** Başkan rolündeki ajan tüm turları ve son düzeltmeleri birleştirerek; uzlaşmaları, ayrışan azınlık görüşlerini ve belirsizlikleri tek bir çıktıda toplar.
+
+---
+
+## Karar Çıktıları ve Dizin Yapısı
+
+Her oturum, projenizin `docs/cogitors-decisions/` dizini altında tarih ve konu slug'ı ile adlandırılmış bir klasörde saklanır:
+
+```text
+docs/cogitors-decisions/20260926-175500-mimir-ui-sadelestirme/
+├── cogitor-antigravity-mimir-ui-sadelestirme.md
+├── cogitor-claude-mimir-ui-sadelestirme.md
+├── cogitor-codex-mimir-ui-sadelestirme.md
+├── cogitor-final-mimir-ui-sadelestirme.json
+└── cogitor-final-mimir-ui-sadelestirme.md
+```
+
+* **Arama Dostu:** IDE'nizde (`Cmd+P`) `cogitor final` veya `mimir codex` yazdığınızda doğrudan ilgili oturuma ve dosyaya ulaşırsınız.
+* **Lazy Creation:** İptal edilen veya başlamayan oturumlar arkasında boş klasör bırakmaz; dizin ilk çıktının başarıyla yazıldığı an açılır.
+* **Dil Koruma:** Göreviniz veya kaynak dosyanız hangi dildeyse (Türkçe, İngilizce vb.), tüm ajanlar ve nihai rapor o dilde üretilir.
+
+---
+
+## Kurulum ve Paketleme
+
+### Gereksinimler
+* Python 3.9+ (macOS veya Linux). **Harici hiçbir pip bağımlılığı yoktur.**
+* `codex`, `claude` ve `agy` CLI araçlarının kurulu ve giriş yapılmış olması.
+
+### Derleme (Build)
+Dört bağımsız skill paketini derlemek için:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
+```
+
+Bu komut `dist/` klasörü altına kurulabilir 4 klasör (`cogitor`, `codex`, `claude`, `antigravity`) ve her birinin `.skill` zip arşivini üretir.
+
+### Yükleme Konumları
+Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalamanız yeterlidir:
+
+| Ajan / Ortam | Skill Dizin Yolu |
+|---|---|
+| Claude Code | `~/.claude/skills/` |
+| Codex | `~/.codex/skills/` |
+| Antigravity | `~/.gemini/config/skills/` |
+| Agent Skills Standardı | `~/.agents/skills/` |
+
+---
+
+## Kullanım Örnekleri
+
+```text
+/cogitor Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
+/codex Kimlik doğrulama akışındaki açıkları kod değiştirmeden listele.
+/claude Bu PR diff'indeki performans darboğazlarını analiz et.
+/antigravity Bu teknik şartnamede çelişen maddeleri bul.
+```
+
+---
+
+## Sınırlar, Maliyet ve Güvenlik
+
+* **Sınırlandırılmış Maliyet:** Tam bir oturum en fazla **8 harici CLI çağrısı** yapar (2 danışman × 4 tur). Başkan kendi oturumunda çalışır. Sonsuz döngü, gizli retry veya başka bir model sağlayıcısına sessizce geçiş yoktur.
+* **Kaynak Güvenliği:** Deliberasyon kaynak kodları doğrudan düzenleme yetkisi vermez. Kaynak dosyalar turlar arasında hash kontrolünden geçer; kaynak değişirse oturum durdurulur.
+* **Dürüst Hata:** Bir danışman çökerse kullanıcıya sorulur (`continue-partial` veya `stop`). En az 2 katılımcı olmadan oturum sürdürülmez.
+* **Zaman Sınırı:** Çağrı başına varsayılan 180 saniye, toplam oturum için 1800 saniye (`--timeout` ve `--total-timeout` ile ayarlanabilir).
+
+---
+
+## Testler
+
+Tüm akış, model çağrısı yapmadan yerel simüle ortamda test edilir:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+41 testlik süit; beş tur veri akışını, başkan bağımsızlık kapılarını, slug üretimini, süreç iptallerini ve paketlemeyi doğrular.
+
+---
+
+# Cogitor (English)
+
+When a critical architecture choice, security review, or product decision is on the line, consulting a single AI model is risky: a solitary model cannot see its own blind spots, hallucinations, or biases, often defending flawed premises with persuasive confidence.
+
+**Cogitor** convenes the industry's three leading frontier models — **Codex (OpenAI)**, **Claude (Anthropic)**, and **Antigravity (Google)** — around a single deliberative table. Each participant receives the entire task. Across four rounds they analyze independently, critique peer positions, address objections with evidence, and in round five the chair synthesizes one defensible decision.
+
+> **Core Principle:** Consensus is not proof of correctness. Reasoned minority opinions and explicit uncertainties are never suppressed; they are preserved in the final synthesis.
+
+---
+
+## Four Skills, Two Levels
 
 | Invocation | Behavior |
 |---|---|
 | `/codex <task>` | Codex only. |
 | `/claude <task>` | Claude Code only. |
 | `/antigravity <task>` | Antigravity only. |
-| `/cogitor <task>` | All three, using the five-round protocol below. |
+| `/cogitor <task>` | All three participants, using the five-round protocol. |
 
-These are skill invocations, not new shell commands. Hosts may use a different prefix (for example `$cogitor`) or natural-language skill selection. The invoking agent chairs the session **and participates**; it is not a fourth model. No extra copy of the chair is started.
+These are skill invocations conforming to the **Agent Skills** specification. The invoking agent chairs the session **and participates**; no fourth phantom model is launched.
 
-Türkçe: Tekli skiller yalnız seçilen ajanı çağırır. Cogitor üç ajana da aynı işin tamamını verir; bağımsız analiz, yeniden değerlendirme, münazara ve nihai görüşlerden sonra başkan tek sonuç sunar. Görüş birliği doğruluk kanıtı değildir; gerekçeli azınlık görüşü korunur.
+---
 
-## Five rounds
+## Five-Round Deliberation Protocol
 
-1. **Independent analysis:** same complete task and shared source snapshot; no peer answers visible.
-2. **Reconsideration:** read the initial views; state what changed or stayed unchanged and why.
-3. **Debate:** challenge specific claims with evidence and questions.
-4. **Final positions:** answer objections and submit a final view.
-5. **Synthesis:** the chair combines the actual final positions, explicitly reporting agreement, dissent, uncertainty and participation.
+1. **Independent Analysis:** Each participant analyzes the task and shared source snapshot without seeing peer opinions.
+2. **Reconsideration:** Participants read the initial views and state what changed or remained unchanged, citing reasons.
+3. **Debate:** Specific disputed claims are challenged directly with evidence and focused counter-questions.
+4. **Final Positions:** Objections are accepted or rejected with justification, submitting a definitive stance.
+5. **Synthesis:** The chair combines all final positions, explicitly reporting consensus, reasoned dissent, uncertainties, and participation status.
 
-The chair records its own contribution before consuming same-round peer answers. Each advisor gets a separate named Markdown history. Original source files remain unchanged during deliberation. For an authorized implementation task, the chair may apply and verify the agreed change afterward.
+---
 
-## Requirements and installation
+## Decision Artifacts & Directory Layout
 
-- Python 3.9+ on macOS or Linux; no Python package dependencies.
-- A Codex, Claude Code or Antigravity host with shell/background execution and file tools.
-- Installed and authenticated `codex`, `claude` and `agy` CLIs for the external participants. A single-agent skill needs only its chosen CLI.
-- Normal host network and credential permissions. No automatic installation, login switching or approval bypass.
+Every session is saved under your project's `docs/cogitors-decisions/` directory, labeled with a timestamp and a descriptive topic slug:
 
-Build all four self-contained bundles:
+```text
+docs/cogitors-decisions/20260926-175500-mimir-ui-simplification/
+├── cogitor-antigravity-mimir-ui-simplification.md
+├── cogitor-claude-mimir-ui-simplification.md
+├── cogitor-codex-mimir-ui-simplification.md
+├── cogitor-final-mimir-ui-simplification.json
+└── cogitor-final-mimir-ui-simplification.md
+```
+
+* **Fuzzy-Search Friendly:** Typing `cogitor final` or `mimir codex` in your editor quick-open (`Cmd+P`) jumps directly to the right decision.
+* **Lazy Creation:** Aborted or cancelled sessions leave no empty directories behind; the folder is created only when the first completed round is written.
+* **Language Preservation:** Whatever language your task or source file uses, all advisors and the final synthesis respond in that same language.
+
+---
+
+## Requirements & Packaging
+
+### Requirements
+* Python 3.9+ on macOS or Linux. **Zero external pip package dependencies.**
+* Authenticated `codex`, `claude`, and `agy` CLIs installed locally.
+
+### Build Portable Bundles
+To package all four self-contained skills:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-Each `dist/<name>/` is an installable skill folder; each `dist/<name>.skill` is the same folder in ZIP format. Copy the expanded folders into the skill directory supported by your host, preserving existing versions as backups, or use a host installer that accepts `.skill` archives. Reload the host's skill discovery. No installer runs automatically.
+This outputs four ready-to-install folders (`cogitor`, `codex`, `claude`, `antigravity`) and their `.skill` ZIP archives in `dist/`.
 
-The packager refuses to overwrite nonempty output. For another build, select a new output directory. Single-agent source folders share the adapter/reference during packaging; install the built bundles, not an isolated raw single-agent folder. The implementation of the adapter is maintained only once.
+### Installation Paths
 
-## Use
+| Agent / Host | Skill Directory |
+|---|---|
+| Claude Code | `~/.claude/skills/` |
+| Codex | `~/.codex/skills/` |
+| Antigravity | `~/.gemini/config/skills/` |
+| Agent Skills Standard | `~/.agents/skills/` |
 
-```text
-/codex Review the authentication change without edits.
-/claude Analyze this proposal using the configured model.
-/antigravity Find contradictions in this specification.
-/cogitor Review this proposal together. Keep the source unchanged and show unresolved objections.
-```
+---
 
-Specify model and effort in the task when needed. Omitted selections inherit the tool's configuration. Selection is per participant, never a hardcoded model release. The current chair's model must be selected in its host before starting. Unsupported choices fail visibly without trying another model or API.
+## Bounded Cost, Safety & Honest Failures
 
-The [Cogitor skill](skills/cogitor/SKILL.md) tells the host how to operate the [round controller](skills/cogitor/references/workflow.md). The [shared adapter contract](skills/cogitor/references/execution.md) documents one-agent calls and actual CLI permission limits.
+* **Bounded Cost:** At most **eight external CLI invocations** per session (2 advisors × 4 rounds). The chair deliberates within its existing host. No recursive delegation, no automatic retries, and no silent provider fallbacks.
+* **Source Integrity:** Deliberation does not authorize file edits. Source snapshots are verified between rounds; any modified source blocks further dispatch.
+* **Honest Failures:** If an external advisor fails, the host pauses for the user's decision (`continue-partial` or `stop`). Fewer than two participants halts deliberation.
+* **Budgets:** Default 180s per call, 1800s total dispatch deadline (configurable via `--timeout` and `--total-timeout`).
 
-Advisor histories and the final decision are saved under `PROJECT/docs/cogitors-decisions/<session>/` by default. You can select another output directory or request private-only artifacts. Private prompts, state and raw CLI logs remain outside the project; exported answers can still contain sensitive task content and are not committed automatically.
+---
 
-## Bounded cost and honest failures
+## Development & Verification
 
-- At most **eight external CLI invocations** for a full session: two advisors × four rounds. The chair supplies four views and one synthesis in the current host. Each invocation can contain multiple provider/tool turns; this is not an exact token or dollar cap.
-- No recursive delegation, automatic retries, extra debate rounds, response cache or silent provider/account fallback.
-- Failed advisors are not retried. With two survivors, the run pauses until the user chooses a **partial** continuation or stops; fewer than two blocks deliberation and retains evidence.
-- Default external timeout: 180 seconds per call; dispatch deadline: 1800 seconds per run, configurable. A timeout pauses for the user's partial/stop decision. The host must also respect the user's overall budget.
-- Recorded provider usage is retained as reported. Unknown usage is not zero; subscription quotas are not converted into fictional dollar costs.
-
-## Safety and limits
-
-Run artifacts are private temporary directories by default. They contain prompts, source excerpts and responses: do not commit or publish them. Selected sources are hashed and checked between rounds; unrelated workspace files are not snapshotted. Source changes stop progression instead of mixing versions.
-
-Execution checks local CLI/login/runtime readiness before starting model calls. A sandbox can hide an existing login or block Antigravity's localhost server and log directory. The host requests explicit permission for the exact check/dispatch command; Cogitor never disables the global sandbox or changes accounts automatically. A successful preflight is not a model/quota availability guarantee.
-
-The controller enforces sequencing and locks submitted host views, but cannot prevent a host from manually opening raw logs or prove that an LLM obeyed its instructions. Claude/Antigravity planning modes are not universal OS sandboxes. Keep the parent host's filesystem restrictions. Process cancellation stops owned local process groups, not necessarily remote work or detached tools.
-
-The included `.github` policies and hardening helper come from the repository's starting template. Repository settings are not changed by Cogitor or its build.
-
-## Development
+Run the full offline test suite:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-Tests use fake CLI executables and controlled model-boundary responses; they do not call providers. They exercise five-round data flow, host independence gates, final corrections, partial panels, request provenance, deadlines, literal prompt transport, settings, cancellation and portable packaging. Real model quality and account access require a separate, explicitly approved live trial.
+The 41 unit tests verify round sequencing, host independence gates, slug extraction, process cleanup, and portable packaging without calling any live AI APIs.
 
-Named after the contemplative minds in *Dune*. This is an independent project. Design inspiration: [claude-council](https://github.com/hex/claude-council), [cc-debate](https://github.com/STRML/cc-debate), [LLM Council](https://github.com/karpathy/llm-council), and [CouncilKit](https://github.com/albertofettucini/CouncilKit).
+---
+
+## Acknowledgments & Inspiration
+
+Named after the contemplative philosophers in Frank Herbert's *Dune*. Independent project inspired by [claude-council](https://github.com/hex/claude-council), [cc-debate](https://github.com/STRML/cc-debate), [LLM Council](https://github.com/karpathy/llm-council), and [CouncilKit](https://github.com/albertofettucini/CouncilKit).
+
+---
 
 ## License
 
-MIT © [Eray Endes](https://github.com/erayendes)
+[MIT](LICENSE) © [Eray Endes](https://github.com/erayendes)
