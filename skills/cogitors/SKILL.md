@@ -1,6 +1,6 @@
 ---
 name: cogitors
-description: Use when the user invokes /cogitors or /cogitor, or requests a joint deliberation by Codex, Claude and Antigravity. Not for a single-agent task or ordinary mentions of these products.
+description: Use when the user invokes /cogitors or requests a joint deliberation by Codex, Claude and Antigravity. Not for a single-agent task or ordinary mentions of these products.
 ---
 
 # The Cogitors
