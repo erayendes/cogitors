@@ -1,0 +1,4 @@
+interface:
+  display_name: "Antigravity"
+  short_description: "Delegate one task to the Antigravity CLI"
+  default_prompt: "Use $antigravity to complete this task within the stated scope."

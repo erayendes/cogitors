@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude"
+  short_description: "Delegate one task to the Claude Code CLI"
+  default_prompt: "Use $claude to complete this task within the stated scope."

@@ -30,8 +30,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Replace this step with the project's own checks — the toolchain setup
-      # (actions/setup-node, setup-python, swift-actions/setup-swift…), then lint,
-      # typecheck, test, build. Pin every action you add to a SHA, as above.
-      - name: No checks configured yet
-        run: echo "CI runs, but this project has not declared its checks yet."
+      - name: Offline checks
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Build portable skills
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 scripts/package_skills.py --output dist

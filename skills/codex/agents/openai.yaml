@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex"
+  short_description: "Delegate one task to the Codex CLI"
+  default_prompt: "Use $codex to complete this task within the stated scope."
