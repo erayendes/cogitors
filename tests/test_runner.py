@@ -302,13 +302,13 @@ class RunnerCheck(unittest.TestCase):
         runner = self.runner()
         base = dict(agent="antigravity", cwd=str(self.root))
         with self.assertRaisesRegex(ValueError, "safe argv limit"):
-            runner.validate_jobs([dict(base, prompt="a" * 100_001)])
-        validated = runner.validate_jobs([dict(base, prompt="a" * 100_000)])
-        self.assertEqual(len(validated[0]["prompt"]), 100_000)
-        # Claude and Codex are not bound to 100k argv limit
+            runner.validate_jobs([dict(base, prompt="a" * 250_001)])
+        validated = runner.validate_jobs([dict(base, prompt="a" * 250_000)])
+        self.assertEqual(len(validated[0]["prompt"]), 250_000)
+        # Claude and Codex are not bound to antigravity's argv limit
         for agent in ("codex", "claude"):
-            other = runner.validate_jobs([dict(agent=agent, cwd=str(self.root), prompt="a" * 150_000)])
-            self.assertEqual(len(other[0]["prompt"]), 150_000)
+            other = runner.validate_jobs([dict(agent=agent, cwd=str(self.root), prompt="a" * 300_000)])
+            self.assertEqual(len(other[0]["prompt"]), 300_000)
 
     def test_tolerant_codex_event_parsing(self):
         runner = self.runner()

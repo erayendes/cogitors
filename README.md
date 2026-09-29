@@ -100,24 +100,64 @@ Her oturum, projenizin `docs/cogitors-decisions/` dizini altında tarih ve konu 
 ```text
 <project-root>
   docs/cogitors-decisions/20260926-175500-mimir-ui-sadelestirme/
-  ├── cogitor-antigravity-mimir-ui-sadelestirme.md
-  ├── cogitor-claude-mimir-ui-sadelestirme.md
-  ├── cogitor-codex-mimir-ui-sadelestirme.md
-  ├── cogitor-final-mimir-ui-sadelestirme.json
-  └── cogitor-final-mimir-ui-sadelestirme.md
+  ├── antigravity-mimir-ui-sadelestirme.md
+  ├── brief-mimir-ui-sadelestirme.md
+  ├── claude-mimir-ui-sadelestirme.md
+  ├── codex-mimir-ui-sadelestirme.md
+  ├── decision-mimir-ui-sadelestirme.md
+  └── decisions-mimir-ui-sadelestirme.html
 ```
 
-* **Arama Dostu:** IDE'nizde (`Cmd+P`) `cogitor final` veya `mimir codex` yazdığınızda doğrudan ilgili oturuma ve dosyaya ulaşırsınız.
+* **Arama Dostu:** IDE'nizde (`Cmd+P`) `decision` veya `mimir codex` yazdığınızda doğrudan ilgili oturuma ve dosyaya ulaşırsınız.
+* **İnteraktif HTML Raporu & .MD Dışa Aktarma:** `decisions-*.html` tek dosyalık, harici kütüphanesiz bir karar paneli sunar. Cihaz temasına otomatik uyum (dark/light), karşılaştırma matrisi, zengin biçimlendirilmiş münazara zaman tüneli ve doğrudan `.md` indirme/kopyalama butonları içerir.
 * **Lazy Creation:** İptal edilen veya başlamayan oturumlar arkasında boş klasör bırakmaz; dizin ilk çıktının başarıyla yazıldığı an açılır.
-* **Dil Koruma:** Göreviniz veya kaynak dosyanız hangi dildeyse (Türkçe, İngilizce vb.), tüm ajanlar ve nihai rapor o dilde üretilir.
+* **Dil Koruma & Çok Dilli Şablonlar:** Göreviniz veya kaynak dosyanız hangi dildeyse (Türkçe, İngilizce vb.), prompt kılavuzları otomatik uyarlanır, tüm ajanlar ve nihai rapor o dilde üretilir.
+* **Kanıt Dosyası:** `--evidence-file rapor.txt` ile kendi çalıştırdığınız test/lint çıktısı Tur 1'den itibaren tüm danışmanlara verilir; hash'lenir, Cogitors komut çalıştırmaz. Redaksiyon yapılmaz, gizli veriyi önceden temizleyin.
+* **Git Entegrasyonu:** `--git-diff` veya `--git-staged` bayraklarıyla çalışma dizini veya stage edilmiş değişiklikler otomatik olarak snapshot alınır.
 
 ---
 
-## Kurulum ve Paketleme
+## Kurulum ve Tanı
+
+### Model Keşfi ve İnteraktif Seçim (Heimdall Tarzı)
+Artık karmaşık JSON yapılarıyla uğraşmak zorunda değilsiniz:
+
+1. **Kurulu Modelleri Listeleme:**
+   ```sh
+   python3 skills/cogitors/scripts/cogitor.py models
+   ```
+   Sistemdeki kurulu CLI'ları (`codex`, `claude`, `agy`) ve kullanılabilir tüm modelleri (`agy models` dinamik listesi dahil) listeler.
+
+2. **İnteraktif Model Seçici (Heimdall):**
+   ```sh
+   python3 skills/cogitors/scripts/cogitor.py configure -i
+   ```
+   Terminalde numaralı menü ile Codex, Claude ve Antigravity için tercih ettiğiniz model ve reasoning effort (akıl yürütme seviyesi) ayarlarını seçmenizi sağlar ve `~/.cogitors/config.json` içine varsayılan profil olarak kaydeder. Sonraki tüm oturumlar bu tercihleri otomatik kullanır!
+
+3. **Doğrudan CLI Bayrakları:**
+   ```sh
+   python3 skills/cogitors/scripts/cogitor.py init /path/brief.md --chair antigravity --cwd "$PWD" \
+     --codex-model o3 --codex-effort high \
+     --claude-model sonnet
+   ```
+
+### Oturum Başlık Banner'ı (Session Header)
+Her `init` komutunda oturum başkanı, konu, heyet üyeleri, modelleri ve çalışma dizinini özetleyen şık bir Header Banner terminalde ve sohbette otomatik gösterilir. İstenildiği an tekrar çağrılabilir:
+
+```sh
+python3 skills/cogitors/scripts/cogitor.py banner /path/run [--markdown]
+```
+
+### Tanı Aracı (Doctor)
+Tüm CLI araçlarının kurulu, giriş yapılmış ve meclis oturumuna hazır olduğunu doğrulamak için:
+
+```sh
+python3 skills/cogitors/scripts/cogitor.py doctor
+```
 
 ### Gereksinimler
 * Python 3.9+ (macOS veya Linux). **Harici hiçbir pip bağımlılığı yoktur.**
-* `codex`, `claude` ve `agy` CLI araçlarının kurulu ve giriş yapılmış olması.
+* `codex`, `claude` ve `agy` CLI araçlarının kurulu ve giriş yapılmış olması (en az iki ajan ikili meclis için yeterlidir).
 
 ### Derleme (Build)
 Dört bağımsız skill paketini derlemek için:
@@ -144,6 +184,7 @@ Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalamanız y
 
 ```text
 /cogitors Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
+/cogitors --git-diff HEAD~1 Bu PR'daki değişiklikleri güvenlik ve performans açısından müzakere edin.
 /codex Kimlik doğrulama akışındaki açıkları kod değiştirmeden listele.
 /claude Bu PR diff'indeki performans darboğazlarını analiz et.
 /antigravity Bu teknik şartnamede çelişen maddeleri bul.
@@ -153,10 +194,11 @@ Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalamanız y
 
 ## Sınırlar, Maliyet ve Güvenlik
 
-* **Sınırlandırılmış Maliyet:** Tam bir oturum en fazla **8 harici CLI çağrısı** yapar (2 danışman × 4 tur). Başkan kendi oturumunda çalışır. Sonsuz döngü, gizli retry veya başka bir model sağlayıcısına sessizce geçiş yoktur.
+* **Sınırlandırılmış Maliyet:** Tam bir oturum **8 ilk harici CLI çağrısı** yapar (2 danışman × 4 tur); onaylı `extend-timeout` retry'ları tur başına en fazla 2 kez eklenir. Gönderim öncesi `status.scope` sağlayıcıları, dosya/bayt sayısını ve azami çağrıyı gösterir; kullanıcı tek seferde onaylar (`approve`). Başkan kendi oturumunda çalışır. Sonsuz döngü, gizli retry veya başka bir model sağlayıcısına sessizce geçiş yoktur.
 * **Kaynak Güvenliği:** Deliberasyon kaynak kodları doğrudan düzenleme yetkisi vermez. Kaynak dosyalar turlar arasında hash kontrolünden geçer; kaynak değişirse oturum durdurulur.
 * **Dürüst Hata:** Bir danışman çökerse kullanıcıya sorulur (`continue-partial` veya `stop`). En az 2 katılımcı olmadan oturum sürdürülmez.
 * **Zaman Sınırı:** Çağrı başına varsayılan 180 saniye, toplam oturum için 1800 saniye (`--timeout` ve `--total-timeout` ile ayarlanabilir).
+* **Tek Adımlı Orkestrasyon:** Tur başına `cycle` komutuyla kayıt, çalıştırma ve ilerletme tek adımda güvenle yürütülebilir.
 
 ---
 
@@ -168,7 +210,7 @@ Tüm akış, model çağrısı yapmadan yerel simüle ortamda test edilir:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-41 testlik süit; beş tur veri akışını, başkan bağımsızlık kapılarını, slug üretimini, süreç iptallerini ve paketlemeyi doğrular.
+60 testlik süit; beş tur veri akışını, başkan bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular.
 
 ---
 
@@ -211,15 +253,18 @@ Every session is saved under your project's `docs/cogitors-decisions/` directory
 
 ```text
 docs/cogitors-decisions/20260926-175500-mimir-ui-simplification/
-├── cogitor-antigravity-mimir-ui-simplification.md
-├── cogitor-claude-mimir-ui-simplification.md
-├── cogitor-codex-mimir-ui-simplification.md
-├── cogitor-final-mimir-ui-simplification.json
-└── cogitor-final-mimir-ui-simplification.md
+├── antigravity-mimir-ui-simplification.md
+├── brief-mimir-ui-simplification.md
+├── claude-mimir-ui-simplification.md
+├── codex-mimir-ui-simplification.md
+├── decision-mimir-ui-simplification.md
+└── decisions-mimir-ui-simplification.html
 ```
 
-* **Fuzzy-Search Friendly:** Typing `cogitor final` or `mimir codex` in your editor quick-open (`Cmd+P`) jumps directly to the right decision.
+* **Fuzzy-Search Friendly:** Typing `decision` or `mimir codex` in your editor quick-open (`Cmd+P`) jumps directly to the right decision.
+* **Interactive HTML Report & .MD Export:** `decisions-*.html` provides a standalone zero-dependency decision dashboard with automatic device dark/light theme, comparison matrix, rich-formatted timeline, and direct `.md` export.
 * **Lazy Creation:** Aborted or cancelled sessions leave no empty directories behind; the folder is created only when the first completed round is written.
+* **Evidence Files:** `--evidence-file report.txt` shares your own test/lint output with every advisor from round 1; it is hashed and frozen, and Cogitors never runs commands. It is not redacted; strip secrets first.
 * **Language Preservation:** Whatever language your task or source file uses, all advisors and the final synthesis respond in that same language.
 
 ---
@@ -252,10 +297,14 @@ This outputs four ready-to-install folders (`cogitors`, `codex`, `claude`, `anti
 
 ## Bounded Cost, Safety & Honest Failures
 
-* **Bounded Cost:** At most **eight external CLI invocations** per session (2 advisors × 4 rounds). The chair deliberates within its existing host. No recursive delegation, no automatic retries, and no silent provider fallbacks.
+* **Bounded Cost:** **Eight initial external CLI invocations** per session (2 advisors × 4 rounds), plus at most 2 user-approved `extend-timeout` retries per round. Before dispatch, `status.scope` lists providers, file/byte counts and the maximum call count; the user consents once (`approve`). The chair deliberates within its existing host. No recursive delegation, no automatic retries, and no silent provider fallbacks.
 * **Source Integrity:** Deliberation does not authorize file edits. Source snapshots are verified between rounds; any modified source blocks further dispatch.
 * **Honest Failures:** If an external advisor fails, the host pauses for the user's decision (`continue-partial` or `stop`). Fewer than two participants halts deliberation.
 * **Budgets:** Default 180s per call, 1800s total dispatch deadline (configurable via `--timeout` and `--total-timeout`).
+* **Streamlined Orchestration:** The `cycle` command runs host recording, dispatch, and advance in one atomic step per round.
+* **Diagnostics:** `python3 skills/cogitors/scripts/cogitor.py doctor` verifies CLI presence and authentication across all providers.
+* **Model Discovery & Heimdall Config:** `python3 skills/cogitors/scripts/cogitor.py models` lists installed CLIs and available models; `configure -i` provides an interactive terminal picker to save default preferences. Direct CLI flags (`--codex-model`, `--claude-model`, etc.) allow effortless overrides.
+* **Session Header Banner:** `init` prints a formatted session banner (with chair, topic, participants, and models) to stderr and chat; view anytime with `banner RUN_DIR [--markdown]`.
 
 ---
 
@@ -267,7 +316,7 @@ Run the full offline test suite:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-The 41 unit tests verify round sequencing, host independence gates, slug extraction, process cleanup, and portable packaging without calling any live AI APIs.
+The 60 unit tests verify round sequencing, host independence gates, slug extraction, process cleanup, doctor preflights, two-agent council, interactive HTML decision viewer, model configuration catalogs, session banners, and portable packaging without calling any live AI APIs.
 
 ---
 
