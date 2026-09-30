@@ -508,12 +508,10 @@ print(json.dumps(data))
         html_file = Path(self.run_dir) / f"decisions-{self.slug}.html"
         self.assertTrue(html_file.is_file())
         html_text = html_file.read_text(encoding="utf-8")
-        self.assertIn("Download .md", html_text)
-        self.assertIn("Copy .md", html_text)
-        self.assertIn("downloadMarkdown()", html_text)
-        self.assertIn("Comparison Matrix", html_text)
+        self.assertIn("Deliberation Stance Evolution Matrix", html_text)
+        self.assertIn("Elder</span>", html_text)
+        self.assertNotIn("(est)", html_text)
         self.assertIn("HTML Answer.", html_text)
-        self.assertIn("raw-markdown", html_text)
         self.assertIn("prefers-color-scheme", html_text)
         self.assertNotIn("toggleTheme", html_text)
 
@@ -683,6 +681,36 @@ print(json.dumps(data))
             self.assertNotIn("do not re-debate", goals[3])
         self.assertIn("weakest assumption", self.engine.ROUND_GOALS_EN[3])
         self.assertIn("en zayıf", self.engine.ROUND_GOALS_TR[3])
+
+
+    def test_structured_synthesis_renders_actions_and_per_cogitor_dissent_without_estimates(self):
+        for stage in range(1, 5):
+            self.host.write_text("Stance: codex holds limit 10 in round %s.\n\nDetails." % stage)
+            self.one_round()
+        final = self.root / "structured.json"
+        final.write_text(json.dumps(dict(
+            answer="Keep the limit.", agreement="All agree.", uncertainties="None measured.",
+            dissent=[{"cogitor": "claude", "position": "Wants `100`.", "response": "Evidence says 10."}],
+            actions=[{"priority": "P0", "text": "Fix the limit. Add a test."}], not_now=[{"item": "TUI", "reason": "Breaks zero dependencies."}])))
+        self.engine.finish(self.run_dir, final)
+        html_text = (Path(self.run_dir) / f"decisions-{self.slug}.html").read_text(encoding="utf-8")
+        md_text = (Path(self.run_dir) / f"decision-{self.slug}.md").read_text(encoding="utf-8")
+        self.assertIn("codex holds limit 10 in round 4.", html_text)  # explicit Stance line
+        self.assertIn("<code>100</code>", html_text)
+        self.assertIn("matrix-stance dissent", html_text)
+        self.assertIn("prio-0", html_text)
+        self.assertIn("<strong>TUI</strong> — Breaks zero dependencies.", html_text)
+        self.assertNotIn("downloadMarkdown", html_text)
+        self.assertIn("**claude:** Wants `100`.", md_text)
+        self.assertIn("- **P0** Fix the limit. Add a test.", md_text)
+        state = json.loads((Path(self.run_dir) / "state.json").read_text())
+        self.assertIsInstance(state["metrics"]["rounds"]["1"]["jobs"]["codex"]["duration_seconds"], float)
+        self.assertNotIn("tok", html_text.split("<tbody>")[1].split("</tbody>")[0])  # no usage reported, no tokens
+        bad = self.root / "bad.json"
+        bad.write_text(json.dumps(dict(answer="a", agreement="b", uncertainties="c",
+                                       dissent=[{"cogitor": "nobody", "position": "x"}])))
+        with self.assertRaisesRegex(ValueError, "dissent list items"):
+            self.engine.validate_synthesis(json.loads(bad.read_text()), ["codex", "claude"])
 
 
 if __name__ == "__main__":

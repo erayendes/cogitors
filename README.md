@@ -210,7 +210,7 @@ Tüm akış, model çağrısı yapmadan yerel simüle ortamda test edilir:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-60 testlik süit; beş tur veri akışını, başkan bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular.
+61 testlik süit; beş tur veri akışını, başkan bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular.
 
 ---
 
@@ -316,7 +316,7 @@ Run the full offline test suite:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-The 60 unit tests verify round sequencing, host independence gates, slug extraction, process cleanup, doctor preflights, two-agent council, interactive HTML decision viewer, model configuration catalogs, session banners, and portable packaging without calling any live AI APIs.
+The 61 unit tests verify round sequencing, host independence gates, slug extraction, process cleanup, doctor preflights, two-agent council, interactive HTML decision viewer, model configuration catalogs, session banners, and portable packaging without calling any live AI APIs.
 
 ---
 

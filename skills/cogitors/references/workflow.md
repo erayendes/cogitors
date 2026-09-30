@@ -15,6 +15,8 @@ python3 /actual/cogitors/scripts/cogitor.py init /path/brief.md \
   --chair codex --cwd /path/project --source /path/project/proposal.md
 ```
 
+Pass `--chair-model <model>` with the host's own model as it knows it; the report marks it self-reported, since the runner cannot verify it. Advisors begin every response with a `Stance:` line, which the report's stance matrix shows.
+
 The returned `run_dir` is a fresh private temporary directory. `--run-dir /new/directory` selects a persistent destination but refuses any existing directory. Paths are examples, not personal defaults. Immediately tell the user the returned `output_dir`.
 
 By default, `init` targets a unique session subfolder named `<timestamp>-<slug>` under `CWD/docs/cogitors-decisions/`. Optional `--slug my-topic` specifies the slug; otherwise it is automatically extracted from the first heading or line of the brief. The folder is created on the first completed round, containing only `brief-<slug>.md`, `codex-<slug>.md`, `claude-<slug>.md`, `antigravity-<slug>.md` and, when finished, `decision-<slug>.md` and `decisions-<slug>.html`. Use `--output-dir` for another destination or `--private` when the user requests no exported files. These are model outputs, not automatically redacted public documents; review before committing. Jobs, raw logs, credentials, and state are never exported. An export failure retains private results and reports the problem; do not repeat model calls to repair file delivery.
@@ -101,14 +103,16 @@ After the user chooses `continue-partial`, two survivors continue through the sa
 
 ## 3. Synthesize once
 
-After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures. The chair reads it and writes JSON with four nonempty string fields:
+After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures. The chair reads it and writes JSON. `answer`, `agreement` and `uncertainties` are nonempty strings. `dissent` is a string, or one item per dissenting participant with the majority's reply. `actions` and `not_now` are optional; keep actions out of `answer`, since the report lists them separately:
 
 ```json
 {
   "answer": "The supported recommendation or deliverable.",
   "agreement": "Which conclusions are shared, by whom; explicitly say when none are shared.",
-  "dissent": "Reasoned minority positions and unresolved objections, or explicitly none.",
-  "uncertainties": "Unverified assumptions, missing checks and limits."
+  "dissent": [{"cogitor": "antigravity", "position": "The minority position.", "response": "Why the others disagree."}],
+  "uncertainties": "Unverified assumptions, missing checks and limits.",
+  "actions": [{"priority": "P0", "text": "Title. One-sentence detail."}],
+  "not_now": [{"item": "Deferred item", "reason": "Why it waits."}]
 }
 ```
 
