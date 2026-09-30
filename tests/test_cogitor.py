@@ -620,7 +620,7 @@ print(json.dumps(data))
         total = sum(1 for f in Path(__file__).parent.glob("test_*.py")
                     for line in f.read_text(encoding="utf-8").splitlines() if line.startswith("    def test_"))
         self.assertIn("%d testlik" % total, readme)
-        self.assertIn("The %d unit tests" % total, readme)
+        self.assertIn("The %d-test suite" % total, readme)
 
 
     def test_dispatch_requires_single_scope_approval_and_status_reports_scope(self):
