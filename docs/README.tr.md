@@ -167,6 +167,15 @@ python3 skills/cogitors/scripts/cogitor.py doctor
 * Python 3.9+ (macOS veya Linux). **Harici hiçbir pip bağımlılığı yoktur.**
 * `codex`, `claude` ve `agy` CLI araçlarının kurulu ve giriş yapılmış olması (en az iki ajan ikili meclis için yeterlidir).
 
+### npm
+Motor npm'de ince bir başlatıcı olarak da yayımlanır (Python 3.9+ yine gereklidir):
+
+```sh
+npx cogitors doctor
+```
+
+Tüm alt komutlar aynı şekilde çalışır, örneğin `npx cogitors models`. Farklı bir Python kullanmak için `COGITORS_PYTHON` ayarlayın.
+
 ### Derleme (Build)
 Dört bağımsız skill paketini derlemek için:
 

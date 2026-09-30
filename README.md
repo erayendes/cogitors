@@ -167,6 +167,15 @@ python3 skills/cogitors/scripts/cogitor.py doctor
 * Python 3.9+ (macOS or Linux). **No external pip dependencies.**
 * The `codex`, `claude` and `agy` CLIs installed and signed in (two agents are enough for a two-member council).
 
+### npm
+The engine is also published on npm as a thin launcher (Python 3.9+ is still required):
+
+```sh
+npx cogitors doctor
+```
+
+Every subcommand works the same way, e.g. `npx cogitors models`. Set `COGITORS_PYTHON` to use a different Python.
+
 ### Build
 To build the four standalone skill packages:
 

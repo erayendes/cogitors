@@ -1,0 +1,25 @@
+{
+  "name": "cogitors",
+  "version": "0.1.0",
+  "description": "Codex, Claude and Antigravity deliberate over five rounds and synthesize one reasoned decision.",
+  "keywords": ["ai", "agents", "agent-skills", "codex", "claude", "antigravity", "deliberation", "code-review"],
+  "homepage": "https://github.com/erayendes/cogitors#readme",
+  "bugs": "https://github.com/erayendes/cogitors/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erayendes/cogitors.git"
+  },
+  "license": "MIT",
+  "author": "Eray Endes",
+  "bin": {
+    "cogitors": "bin/cogitors.js"
+  },
+  "files": [
+    "bin/",
+    "skills/cogitors/",
+    "!**/__pycache__/"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
