@@ -16,6 +16,16 @@ Glad you want to contribute. I run this and several other projects on my own, so
 - Write short, clear **commit** messages.
 - If you find a **security vulnerability**, please don't disclose it publicly. [I'll handle it privately, outside the normal flow.](SECURITY.md)
 
+### Tests
+
+The whole flow is tested in a local simulated environment without calling any model:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+The 61-test suite verifies the five-round data flow, Elder independence gates, slug generation, process cancellation, doctor diagnostics, the two-member council, the HTML decision viewer and packaging. Run it before opening a pull request.
+
 I review PRs and issues as time allows. There's no fixed response time, but;
 
 - **Small changes** (fixes, clearer docs, minor improvements) — I review faster and usually merge within a few days.
@@ -36,6 +46,16 @@ Projeye katkı sağlamak istediğinize sevindim. Bu ve benzeri birçok projeyi t
 - **Kod stili**ne dikkat edin. Düzenlediğiniz dosyadaki mevcut stile uyun.
 - **Commit**'lerinize kısa ve net mesajlar yazın.
 - **Güvenlik açığı** gördüyseniz lütfen bunu kamuya açık paylaşmayın. [Normal akışın dışında özel olarak ele alırım.](SECURITY.md)
+
+### Testler
+
+Tüm akış, model çağrısı yapmadan yerel simüle ortamda test edilir:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+61 testlik süit; beş tur veri akışını, Elder bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular. Pull request açmadan önce çalıştırın.
 
 PR ve issue'ları zaman buldukça inceliyorum. Net bir yanıt süresi yok ama;
 
