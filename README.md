@@ -54,48 +54,48 @@ Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağ
 ## Beş Tur Protokolü
 
 ```text
-               ┌───────────────────────┐
-               │   /cogitors <task>    │
-               └───────────┬───────────┘
-Round 1: Initial Analysis  ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-                           ▼
-               ┌───────────────────────┐
-               │    Drafts Unsealed    │
-               └───────────┬───────────┘
-Round 2: Reconsideration   ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-Round 3: Debate            ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │─x─│ Antigravity │─x─│   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-Round 4: Final Position    ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┐
-Round 5: Synthesis         ▼
-────────────────────┬──────────────┐
-                    │    Elder     │
-                    └──────────────┘
+                 ┌───────────────────────┐
+                 │    /cogitors <task>   │
+                 └───────────┬───────────┘
+Tur 1: Bağımsız Analiz       ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+                             ▼
+                 ┌───────────────────────┐
+                 │  Taslakların Açılması │
+                 └───────────┬───────────┘
+Tur 2: Yeniden Değerlendirme ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+Tur 3: Münazara              ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │─x─│ Antigravity │─x─│   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+Tur 4: Nihai Pozisyon        ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┐
+Tur 5: Sentez                ▼
+──────────────────────┬──────────────┐
+                      │    Elder     │
+                      └──────────────┘
 ```
 
-1. **Initial Analysis:** Üç ajan da aynı görev ve kaynak dosyalar üzerinde analizini yapar. Bu turda hiçbiri diğerinin çalışmasını görmez.
-2. **Reconsideration:** Ajanlar ilk turdaki akran görüşlerini okur. Kendi ön analizlerini akranların görüşlerine göre revize eder ya da etmez.
-3. **Debate:** Her bir ajan kendi görüşünü somut kanıtlarla savunur. Varsa diğer görüşlere itiraz eder.
-4. **Final Position:** İtirazlara cevap verilir ve son duruş belirlenir.
-5. **Synthesis:** Elder ajan tüm turları ve son düzeltmeleri birleştirerek; uzlaşmaları, ayrışan azınlık görüşlerini ve belirsizlikleri tek bir çıktıda toplar.
+1. **Bağımsız Analiz:** Üç ajan da aynı görev ve kaynak dosyalar üzerinde analizini yapar. Bu turda hiçbiri diğerinin çalışmasını görmez.
+2. **Yeniden Değerlendirme:** Ajanlar ilk turdaki akran görüşlerini okur. Kendi ön analizlerini akranların görüşlerine göre revize eder ya da etmez.
+3. **Münazara:** Her bir ajan kendi görüşünü somut kanıtlarla savunur. Varsa diğer görüşlere itiraz eder.
+4. **Nihai Pozisyon:** İtirazlara cevap verilir ve son duruş belirlenir.
+5. **Sentez:** Elder ajan tüm turları ve son düzeltmeleri birleştirerek; uzlaşmaları, ayrışan azınlık görüşlerini ve belirsizlikleri tek bir çıktıda toplar.
 
 ---
 
@@ -222,13 +222,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 61 testlik süit; beş tur veri akışını, Elder bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular.
 
-## Meraklısına ismin hikayesi
+## Meraklısına İsmin Hikayesi
 
 **Cogitor**'lar, Dune evreninde bedenlerinden ayrılıp koruyucu bir sıvı içinde **binlerce yılı düşünmeye adayan** kadim zihinlerdir. 
 Bir sonuca acele etmeden, uzun uzun düşünüp tartıştıktan sonra varırlar. 
 Bu proje de adını onlardan alıyor: birden fazla model aynı soruyu acele etmeden, kendilerini ve birbirlerini sorgulayarak düşünür. 
-
-Frank Herbert'ın Dune serisinin öncesini anlatan, Brian Herbert ve Kevin J. Anderson'ın *Legends of Dune* serisindeki (özellikle *The Butlerian Jihad*) Cogitor'lardan esinlenilmiştir.
 
 ---
 
@@ -434,10 +432,18 @@ The 61-test suite verifies the five-round data flow, Elder independence gates, s
 They reach a conclusion only after thinking and debating at length, never in haste.
 This project takes its name from them: several models think through the same question without haste, questioning themselves and each other.
 
-Inspired by the Cogitors of Brian Herbert and Kevin J. Anderson's *Legends of Dune* series (especially *The Butlerian Jihad*), the prequels to Frank Herbert's *Dune*.
-
 ---
 
 ## License
 
 [MIT](LICENSE) © [Eray Endes](https://github.com/erayendes)
+
+---
+
+<p align="center">
+  <a href="https://github.com/erayendes/cogitors/issues/new?template=bug_report.yml">Hata bildir · Report a bug</a> ·
+  <a href="https://github.com/erayendes/cogitors/issues/new?template=feature_request.yml">Özellik iste · Request a feature</a> ·
+  <a href=".github/SUPPORT.md">Destek · Support</a> ·
+  <a href=".github/SECURITY.md">Güvenlik · Security</a> ·
+  <a href=".github/CONTRIBUTING.md">Katkı · Contributing</a>
+</p>
