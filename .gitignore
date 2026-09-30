@@ -8,3 +8,4 @@ dist/
 .cogitor/
 docs/cogitors-decisions/
 *.log
+designs/
