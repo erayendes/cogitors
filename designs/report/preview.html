@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Cogitors — Cogitors&#x27;u Nasıl Daha İyi Yaparız? (Geliştirme ve Gelecek Yol Haritası)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --bg-subtle: #fbfbfc;
+      --bg-muted: #f5f5f6;
+      --bg-inset: #f7f7f8;
+      --bg-hover: #f2f2f4;
+      --bg-active: #ececef;
+      --border: #eaeaec;
+      --border-strong: #dcdce0;
+      --border-hover: #c6c6cc;
+
+      --fg: #18181b;
+      --fg-secondary: #51515a;
+      --fg-muted: #76767f;
+      --fg-faint: #a3a3ad;
+
+      --accent: #18181b;
+      --accent-hover: #000000;
+      --accent-fg: #ffffff;
+      --accent-tint: #f4f4f5;
+      --accent-ring: rgba(24, 24, 27, 0.16);
+
+      --green: #157a52;
+      --green-bg: #eaf5ef;
+      --green-border: #cfe9dd;
+      --amber: #9a6a16;
+      --amber-bg: #faf2e2;
+      --amber-border: #ecdcb8;
+      --red: #c5392f;
+      --red-bg: #fbeceb;
+      --red-border: #f1cfcc;
+      --blue: #2563c9;
+      --blue-bg: #eaf1fc;
+      --blue-border: #cbdcf6;
+      --violet: #5b4bcc;
+      --violet-bg: #efedfb;
+      --violet-border: #dad5f4;
+
+      --r-sm: 4px;
+      --r-md: 6px;
+      --r-lg: 9px;
+      --r-pill: 999px;
+
+      --control-h: 30px;
+
+      --fs-title: 20px;
+      --fs-section: 17px;
+      --fs-heading: 15px;
+      --fs-doc: 14.5px;
+      --fs-body: 13.5px;
+      --fs-ui: 12.5px;
+      --fs-label: 11.5px;
+      --fs-micro: 11px;
+
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 24px;
+      --sp-6: 32px;
+
+      --font-sans: -apple-system, system-ui, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+      --shadow-xs: 0 1px 1px rgba(24, 24, 27, 0.04);
+      --shadow-lg: 0 12px 32px rgba(24, 24, 27, 0.12), 0 2px 6px rgba(24, 24, 27, 0.06);
+
+      --speed: 130ms;
+      --ease: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --border-hover: #3a3a40;
+        --bg: #0a0a0b;
+        --bg-subtle: #0e0e10;
+        --bg-muted: #161618;
+        --bg-inset: #121214;
+        --bg-hover: #1a1a1d;
+        --bg-active: #212126;
+        --border: #2a2a30;
+        --border-strong: #3a3a42;
+
+        --fg: #ededef;
+        --fg-secondary: #9c9ca5;
+        --fg-muted: #6e6e77;
+        --fg-faint: #54545c;
+
+        --accent: #ededef;
+        --accent-hover: #cfcfd4;
+        --accent-fg: #0a0a0b;
+        --accent-tint: #1c1c20;
+        --accent-ring: rgba(237, 237, 239, 0.16);
+
+        --green: #46c08a;
+        --green-bg: #10231b;
+        --green-border: #1d3b2e;
+        --amber: #d3a55e;
+        --amber-bg: #241c0e;
+        --amber-border: #3a2e16;
+        --red: #e0726a;
+        --red-bg: #26120f;
+        --red-border: #3d201c;
+        --blue: #5e9bf0;
+        --blue-bg: #0f1c30;
+        --blue-border: #1c3050;
+        --violet: #8b7df0;
+        --violet-bg: #171530;
+        --violet-border: #272350;
+
+        --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: var(--fs-body);
+      line-height: 1.55;
+      font-feature-settings: 'cv01', 'ss01', 'tnum';
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: var(--sp-6);
+    }
+    .mono {
+      font-family: var(--font-mono);
+      letter-spacing: 0;
+      font-feature-settings: 'tnum' 1;
+    }
+    header {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: var(--sp-3) var(--sp-5);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--sp-3);
+      box-shadow: var(--shadow-xs);
+    }
+    .header-left { display: flex; align-items: center; gap: var(--sp-2); }
+    .header-title { font-size: var(--fs-heading); font-weight: 600; color: var(--fg); }
+
+    /* Buttons */
+
+    /* Main Navigation Tabs (Link Buttons inside container) */
+    .main-tabs {
+      display: flex;
+      gap: var(--sp-2);
+      align-items: center;
+      margin-bottom: var(--sp-5);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: var(--sp-2);
+    }
+    .tab-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: var(--control-h);
+      padding: 0 14px;
+      font-size: var(--fs-body);
+      font-weight: 500;
+      line-height: 1;
+      border-radius: var(--r-md);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--fg-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+      font-family: inherit;
+      transition: all var(--speed) var(--ease);
+    }
+    .tab-link:hover {
+      color: var(--fg);
+      background: var(--bg-hover);
+    }
+    .tab-link.active {
+      color: var(--fg);
+      background: var(--bg-active);
+      border-color: var(--border-strong);
+      font-weight: 600;
+      box-shadow: var(--shadow-xs);
+    }
+
+    /* Sub Navigation Segmented Controls */
+    .seg {
+      display: inline-flex;
+      padding: 2px;
+      gap: 2px;
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+    }
+    .sub-seg button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: calc(var(--control-h) - 4px);
+      padding: 0 12px;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: var(--fs-ui);
+      font-weight: 500;
+      color: var(--fg-muted);
+      border-radius: calc(var(--r-md) - 2px);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+    }
+    .sub-seg button:hover {
+      color: var(--fg);
+    }
+    .sub-seg button.on {
+      background: var(--bg);
+      color: var(--fg);
+      box-shadow: var(--shadow-xs);
+      font-weight: 600;
+    }
+
+    /* Model Brand Icons */
+    .model-brand-icon {
+      width: 15px;
+      height: 15px;
+      display: inline-block;
+      vertical-align: -2px;
+      flex: none;
+    }
+
+    /* Status Tags */
+    .kx-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 20px;
+      padding: 0 8px;
+      font-size: var(--fs-ui);
+      font-weight: 500;
+      line-height: 1;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-muted);
+      color: var(--fg-secondary);
+      white-space: nowrap;
+    }
+    .kx-status::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+      flex: none;
+    }
+    .kx-status-approved {
+      background: var(--green-bg);
+      border-color: var(--green-border);
+      color: var(--green);
+    }
+    .kx-status-failed {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red);
+    }
+    .kx-status-chair {
+      background: var(--violet-bg);
+      border-color: var(--violet-border);
+      color: var(--violet);
+    }
+
+    /* Layout & Containers */
+    .container {
+      max-width: 1240px;
+      margin: var(--sp-5) auto;
+      padding: 0 var(--sp-4);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--sp-4);
+      margin-bottom: var(--sp-4);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--sp-3);
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: var(--fs-heading);
+      font-weight: 600;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+    .card-body {
+      font-size: var(--fs-doc);
+      line-height: 1.65;
+      color: var(--fg);
+    }
+    .card-body p { margin-bottom: var(--sp-3); }
+    .card-body p:last-child { margin-bottom: 0; }
+    .card-body ul, .card-body ol { margin: var(--sp-2) 0 var(--sp-3) var(--sp-5); }
+    .card-body li { margin-bottom: var(--sp-1); }
+    .card-body h1, .card-body h2, .card-body h3, .card-body h4 {
+      margin: var(--sp-4) 0 var(--sp-2);
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .card-body h1 { font-size: var(--fs-section); }
+    .card-body h2 { font-size: var(--fs-heading); }
+    .card-body h3 { font-size: var(--fs-body); }
+    .card-body hr { border: none; border-top: 1px solid var(--border); margin: var(--sp-4) 0; }
+    .card-body blockquote {
+      border-left: 3px solid var(--border-strong);
+      padding: var(--sp-2) var(--sp-3);
+      margin: var(--sp-3) 0;
+      background: var(--bg-muted);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      color: var(--fg-secondary);
+    }
+
+    /* Executive Overview Card (Giriş Kartı) */
+    .overview-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--sp-5);
+      margin-bottom: var(--sp-5);
+    }
+    .overview-eyebrow {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--fg-muted);
+      margin-bottom: var(--sp-2);
+    }
+    .overview-title {
+      font-size: var(--fs-title);
+      font-weight: 600;
+      color: var(--fg);
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+      margin-bottom: var(--sp-3);
+    }
+    .overview-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-2);
+      align-items: center;
+      font-size: var(--fs-label);
+      color: var(--fg-muted);
+      margin-bottom: var(--sp-4);
+    }
+    .overview-models-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--sp-3);
+      padding-top: var(--sp-4);
+      border-top: 1px solid var(--border);
+    }
+    .model-summary-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: var(--sp-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+    .model-summary-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .model-summary-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--fs-body);
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .model-summary-time {
+      font-family: var(--font-mono);
+      font-size: var(--fs-body);
+      font-weight: 600;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .model-summary-breakdown {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--fg-muted);
+    }
+    .model-summary-tokens {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--fg-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-top: 4px;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin-top: var(--sp-2); font-size: var(--fs-body); }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--bg-muted); color: var(--fg-secondary); font-size: var(--fs-ui); font-weight: 600; }
+    .matrix-table td { vertical-align: top; }
+    .matrix-stance { font-size: var(--fs-body); line-height: 1.55; color: var(--fg); }
+
+    /* Model Round Cards */
+    .round-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: var(--sp-4);
+      margin-bottom: var(--sp-4);
+    }
+    .round-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--sp-3);
+    }
+    .round-title {
+      font-size: var(--fs-heading);
+      font-weight: 600;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+    .round-body {
+      font-size: var(--fs-body);
+      line-height: 1.65;
+      color: var(--fg);
+    }
+    .round-body p { margin-bottom: var(--sp-3); }
+    .round-body p:last-child { margin-bottom: 0; }
+    .round-body ul, .round-body ol { margin: var(--sp-2) 0 var(--sp-3) var(--sp-5); }
+    .round-body li { margin-bottom: var(--sp-1); }
+
+    /* Code & Pre */
+    code {
+      background: var(--bg-inset);
+      color: var(--fg);
+      padding: 2px 5px;
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--bg-inset);
+      padding: var(--sp-3);
+      border-radius: var(--r-md);
+      overflow-x: auto;
+      margin: var(--sp-3) 0;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      border: none;
+    }
+    /* Report v2 */
+    [hidden] { display: none !important; }
+    .page-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); margin-top: var(--sp-3); font-size: var(--fs-ui); color: var(--fg-muted); }
+    .page-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+    .page-meta strong { color: var(--fg); font-weight: 600; }
+    .page-meta em { font-style: normal; color: var(--fg-faint); }
+    .who { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--fg); white-space: nowrap; }
+    .role { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: var(--r-pill); font-size: var(--fs-micro); font-weight: 600; }
+    .role-elder { background: var(--blue); color: #ffffff; }
+    .sub { display: block; margin-top: 2px; font-size: var(--fs-label); font-weight: 400; color: var(--fg-muted); }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .council th, .council td { vertical-align: top; }
+    .council code { white-space: nowrap; }
+    .council .total { font-weight: 600; }
+    .summary-card { padding: var(--sp-5); }
+    .summary-card .council { margin-top: 0; }
+    .page-head { margin-bottom: var(--sp-4); }
+    html, body { height: 100%; }
+    body { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+    .topbar { flex: none; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .topbar header { position: static; }
+    .topbar-inner { margin-bottom: 0; }
+    .topbar .main-tabs { margin-bottom: 0; border-bottom: 0; }
+    .scroll { flex: 1; overflow-y: auto; }
+    .scroll > .container { padding-bottom: var(--sp-6); }
+    .kv dt:first-child + dd { grid-column: 1 / -1; text-align: left; margin-top: -2px; }
+    .summary-card .council th { background: none; color: var(--fg-muted); font-weight: 500; font-size: var(--fs-label); }
+    .summary-card .council td, .summary-card .council th { padding: 10px 12px 10px 0; }
+    .summary-card .council tr:last-child td, .summary-card .council tr:last-child th { border-bottom: 0; }
+    .summary-card .note { padding: var(--sp-3) 0 0; border-top: 1px solid var(--border); }
+    .main-tabs .who { font-weight: inherit; color: inherit; }
+    .brand { font-size: var(--fs-ui); font-weight: 600; color: var(--fg-muted); letter-spacing: 0.02em; }
+    .council tr.dim { opacity: 0.55; }
+    .failed { color: var(--red); }
+    .note { padding: var(--sp-3) var(--sp-4); font-size: var(--fs-label); color: var(--fg-muted); }
+    .decisions { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-5); align-items: start; }
+    @media (max-width: 960px) { .decisions, .cogitor-layout { grid-template-columns: 1fr; } }
+    .section-title { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); font-size: var(--fs-section); font-weight: 600; }
+    .agreement { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--green-border); }
+    .callout-green { background: var(--green-bg); border-color: var(--green-border); }
+    .callout-green .card-header { border-color: var(--green-border); }
+    .callout-green .card-title { color: var(--green); }
+    .not-now ul { margin: var(--sp-2) 0 0 var(--sp-5); }
+    .not-now li { margin-bottom: var(--sp-1); }
+    .not-now { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--green-border); }
+    .callout-red { background: var(--red-bg); border-color: var(--red-border); }
+    .callout-red .card-header { border-color: var(--red-border); }
+    .callout-red .card-title { color: var(--red); }
+    .callout-amber { background: var(--amber-bg); border-color: var(--amber-border); }
+    .callout-amber .card-header { border-color: var(--amber-border); }
+    .callout-amber .card-title { color: var(--amber); }
+    .dissent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-3); }
+    .dissent-block { background: var(--bg); border: 1px solid var(--red-border); border-radius: var(--r-md); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+    .dissent-reply { color: var(--fg-secondary); }
+    .action-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .action { display: flex; gap: var(--sp-2); align-items: flex-start; cursor: pointer; font-size: var(--fs-body); line-height: 1.45; }
+    .action input { margin-top: 3px; flex: none; accent-color: var(--blue); }
+    .action strong { font-weight: 600; }
+    .action-detail { display: block; margin-top: 2px; color: var(--fg-secondary); font-size: var(--fs-ui); }
+    .prio { align-self: flex-start; height: 18px; padding: 0 6px; border-radius: var(--r-sm); font-size: var(--fs-micro); font-weight: 700; display: inline-flex; align-items: center; }
+    .prio-0 { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+    .prio-1 { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .prio-2 { background: var(--bg-muted); color: var(--fg-secondary); border: 1px solid var(--border); }
+    .muted-label { font-size: var(--fs-label); color: var(--fg-muted); }
+    .matrix-table th[scope="row"] { font-weight: 600; white-space: nowrap; }
+    .matrix-stance.dissent { background: var(--red-bg); }
+    .dissent-tag { display: flex; width: fit-content; margin-top: var(--sp-2); }
+    .cogitor-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+    .cogitor-side { position: sticky; top: var(--sp-4); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-ui); }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px var(--sp-3); font-variant-numeric: tabular-nums; }
+    .kv dt { color: var(--fg-muted); }
+    .kv dd { margin: 0; text-align: right; }
+    .round-nav { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding-top: var(--sp-3); }
+    .round-nav a { display: block; padding: 6px 8px; border-radius: var(--r-md); color: var(--fg); text-decoration: none; }
+    .round-nav a:hover { background: var(--bg-hover); }
+    .round-meta { display: flex; align-items: center; gap: var(--sp-2); }
+    .round-meta .sub { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+  <header>
+    <div class="header-left brand"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>The Cogitors</span></div>
+  </header>
+
+  <div class="container topbar-inner">
+    <div class="page-head">
+        <div class="overview-title">Cogitors&#x27;u Nasıl Daha İyi Yaparız? (Geliştirme ve Gelecek Yol Haritası)</div>
+        <div class="page-meta">
+          <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> 27.09.2026 00:30</span>
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Katılım <strong>3/3</strong></span>
+          <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Toplam süre <strong>496,6 sn</strong> <em>Cogitor&#x27;lar paralel çalışır</em></span>
+          <span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> Tüm turlar tamamlandı</span>
+        </div>
+    </div>
+    <nav class="main-tabs">
+      <button class="tab-link active" onclick="show('page', 'page-summary', this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Özet</span></button>
+      <button class="tab-link" onclick="show('page', 'page-matrix', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg><span>Matrix</span></button>
+      <button class='tab-link' onclick="show('page', 'cog-codex', this)"><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M83.7733 42.8087C84.6678 40.1149 84.9771 37.2613 84.6807 34.4385C84.3843 31.6156 83.489 28.8885 82.0544 26.4394C77.6908 18.8436 68.9203 14.9365 60.3548 16.7725C57.9831 14.1344 54.9591 12.1668 51.5864 11.0673C48.2137 9.96772 44.611 9.77498 41.1402 10.5084C37.6694 11.2418 34.4527 12.8755 31.8132 15.2455C29.1736 17.6155 27.204 20.6383 26.1024 24.0103C23.3212 24.5806 20.6938 25.738 18.3958 27.405C16.0977 29.0721 14.1819 31.2104 12.7765 33.6772C8.36538 41.2609 9.3669 50.8267 15.2527 57.3327C14.3549 60.0251 14.0424 62.8782 14.3361 65.7012C14.6298 68.5241 15.523 71.2518 16.9558 73.7017C21.325 81.3002 30.1011 85.207 38.6712 83.3686C40.5554 85.4904 42.8707 87.1858 45.4623 88.3416C48.0539 89.4975 50.8622 90.0871 53.6999 90.0713C62.4793 90.079 70.2575 84.4114 72.9393 76.0515C75.7201 75.4802 78.347 74.3225 80.6449 72.6555C82.9427 70.9886 84.8587 68.8507 86.2649 66.3846C90.6227 58.8145 89.6172 49.3005 83.7733 42.8087ZM53.6999 84.8356C50.1955 84.8411 46.801 83.6129 44.1116 81.3661L44.5848 81.098L60.5123 71.9043C60.9087 71.6718 61.2379 71.3402 61.4674 70.942C61.6969 70.5439 61.8189 70.0929 61.8215 69.6333V47.1769L68.5553 51.072C68.6225 51.1063 68.6694 51.1707 68.6814 51.2456V69.854C68.6641 78.1208 61.9667 84.8183 53.6999 84.8356ZM21.4977 71.0843C19.7402 68.0497 19.1092 64.4925 19.7156 61.0386L20.1885 61.3225L36.1321 70.5165C36.5266 70.748 36.9757 70.87 37.4331 70.87C37.8905 70.87 38.3396 70.748 38.7341 70.5165L58.21 59.2883V67.0628C58.2081 67.1031 58.1973 67.1424 58.1782 67.1779C58.1591 67.2134 58.1322 67.2441 58.0996 67.2678L41.9671 76.5722C34.798 80.7022 25.6388 78.2463 21.4977 71.0843ZM17.3026 36.3898C19.0723 33.3357 21.8655 31.0062 25.1878 29.8138V48.7376C25.1818 49.1949 25.2986 49.6453 25.5261 50.042C25.7535 50.4387 26.0833 50.7671 26.4809 50.9928L45.8622 62.1739L39.1283 66.069C39.0919 66.0883 39.0513 66.0984 39.0101 66.0984C38.9689 66.0984 38.9283 66.0883 38.8919 66.069L22.7908 56.7809C15.6359 52.6337 13.1822 43.4816 17.3026 36.3112V36.3898ZM72.624 49.2426L53.1792 37.9512L59.8976 34.0718C59.9341 34.0524 59.9747 34.0423 60.016 34.0423C60.0573 34.0423 60.0979 34.0524 60.1344 34.0718L76.2355 43.3761C78.6973 44.7966 80.7043 46.8882 82.0221 49.4065C83.3398 51.9249 83.914 54.7661 83.6775 57.5985C83.4411 60.431 82.4038 63.1377 80.6867 65.4027C78.9696 67.6677 76.6436 69.3975 73.9803 70.3901V51.466C73.9663 51.0096 73.834 50.5647 73.5962 50.1749C73.3584 49.7851 73.0234 49.4638 72.624 49.2426ZM79.3261 39.1657L78.8529 38.8815L62.9411 29.6089C62.5442 29.376 62.0924 29.2532 61.6322 29.2532C61.172 29.2532 60.7202 29.376 60.3233 29.6089L40.8629 40.8374V33.0628C40.8587 33.0233 40.8654 32.9834 40.882 32.9473C40.8987 32.9113 40.9248 32.8803 40.9575 32.8579L57.0586 23.5692C59.5263 22.1476 62.3478 21.458 65.193 21.5811C68.0382 21.7042 70.7896 22.6348 73.1253 24.2642C75.461 25.8936 77.2845 28.1543 78.3825 30.782C79.4806 33.4097 79.8077 36.2957 79.3257 39.1025V39.1657H79.3261ZM37.1888 52.9484L30.455 49.069C30.4213 49.0487 30.3925 49.0212 30.3707 48.9884C30.3488 48.9557 30.3345 48.9186 30.3286 48.8797V30.3188C30.3323 27.4714 31.1466 24.6839 32.6761 22.2822C34.2057 19.8805 36.3874 17.9639 38.9661 16.7564C41.5448 15.549 44.4139 15.1005 47.2381 15.4636C50.0622 15.8267 52.7247 16.9862 54.9141 18.8067L54.4409 19.0748L38.5134 28.2686C38.117 28.5011 37.7879 28.8327 37.5584 29.2308C37.329 29.629 37.207 30.0799 37.2045 30.5395L37.1888 52.9487V52.9484ZM40.8472 45.0632L49.5209 40.0643L58.21 45.0635V55.0615L49.5523 60.0608L40.8632 55.0615L40.8472 45.0632Z" fill="currentColor"/></svg><span>Codex</span><span class='role role-elder'><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg> Elder</span></span></button><button class='tab-link' onclick="show('page', 'cog-claude', this)"><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M25.7146 63.2153L41.4393 54.3917L41.7025 53.6226L41.4393 53.1976H40.6705L38.0394 53.0359L29.054 52.7929L21.2624 52.4691L13.7134 52.0644L11.8111 51.6594L10.0303 49.3118L10.2123 48.138L11.8111 47.0657L14.0981 47.2681L19.1574 47.6119L26.7467 48.138L32.2516 48.4618L40.4073 49.3118H41.7025L41.8846 48.7857L41.4393 48.4618L41.0955 48.138L33.243 42.8155L24.7432 37.1894L20.2909 33.9513L17.8824 32.3119L16.6684 30.774L16.1422 27.4147L18.328 25.0062L21.2624 25.2088L22.0112 25.4112L24.9861 27.6979L31.3407 32.616L39.6381 38.7273L40.8525 39.7391L41.3381 39.395L41.399 39.1523L40.8525 38.2415L36.3394 30.0858L31.5227 21.7883L29.3775 18.3478L28.811 16.2837C28.6087 15.4334 28.4669 14.7252 28.4669 13.8549L30.9563 10.4753L32.3321 10.0303L35.6515 10.4756L37.0479 11.6897L39.112 16.4052L42.4513 23.8327L47.6321 33.9313L49.15 36.9265L49.9594 39.6991L50.2632 40.5491H50.7894V40.0632L51.2141 34.3766L52.0035 27.3944L52.7726 18.4087L53.0358 15.8793L54.2905 12.8435L56.7795 11.2041L58.7224 12.135L60.3212 14.422L60.0986 15.899L59.1474 22.0718L57.2857 31.7458L56.0713 38.2218H56.7795L57.5892 37.4121L60.8677 33.061L66.3723 26.18L68.801 23.448L71.6342 20.4325L73.4556 18.9957H76.8962L79.4255 22.7601L78.2926 26.6456L74.7509 31.1384L71.8163 34.943L67.607 40.6097L64.9758 45.1431L65.2188 45.5072L65.8464 45.4466L75.358 43.4228L80.4984 42.4917L86.6304 41.4393L89.4033 42.7346L89.7065 44.0502L88.6135 46.7419L82.0566 48.3607L74.3662 49.8989L62.9118 52.6109L62.77 52.7121L62.9321 52.9144L68.0925 53.4L70.2987 53.5214H75.7021L85.7601 54.2702L88.3912 56.0108L89.9697 58.1358L89.7065 59.7545L85.6589 61.8189L80.1949 60.5236L67.4452 57.4881L63.0735 56.3952H62.4665V56.7596L66.1093 60.3213L72.7877 66.3523L81.1461 74.1236L81.5707 76.0462L80.4984 77.5638L79.3649 77.4021L72.0186 71.8772L69.1854 69.3879L62.77 63.9844H62.3453V64.5509L63.8223 66.7164L71.6342 78.4544L72.0389 82.0567L71.4725 83.2308L69.4487 83.939L67.2222 83.534L62.6485 77.1189L57.9333 69.8937L54.1284 63.4177L53.6631 63.6809L51.4167 87.8651L50.3644 89.0995L47.9356 90.0303L45.9121 88.4924L44.8392 86.0031L45.9118 81.0852L47.2071 74.6701L48.2594 69.5699L49.2106 63.2356L49.7773 61.131L49.7367 60.9892L49.2715 61.0498L44.4954 67.607L37.23 77.4224L31.4825 83.5746L30.1063 84.1211L27.7181 82.8864L27.9408 80.6805L29.2763 78.7177L37.2297 68.5988L42.026 62.3248L45.1227 58.7025L45.1024 58.176H44.9204L23.7917 71.8975L20.0274 72.3831L18.4083 70.8655L18.6106 68.3761L19.3798 67.5664L25.7343 63.195L25.7146 63.2153Z" fill="currentColor"/></svg><span>Claude</span></span></button><button class='tab-link' onclick="show('page', 'cog-antigravity', this)"><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M85.2843 88.0301C90.1329 91.6664 97.4057 89.2422 90.7389 82.5755C70.7389 63.1816 74.9813 9.84827 50.1329 9.84827C25.2843 9.84827 29.5267 63.1816 9.52673 82.5755C2.25402 89.8483 10.1328 91.6664 14.9813 88.0301C33.7692 75.3028 32.5571 52.8786 50.1329 52.8786C67.7086 52.8786 66.4965 75.3028 85.2843 88.0301Z" fill="currentColor"/></svg><span>Antigravity</span></span></button>
+    </nav>
+  </div>
+  </div>
+
+  <main class="scroll">
+  <div class="container">
+
+    <div id="page-summary" data-group="page">
+      <div class="card summary-card">
+        <table class="council">
+          <thead><tr><th>Cogitor</th><th>Model</th><th>R1 Bağımsız Analiz</th><th>R2 Yeniden Değerlendirme</th><th>R3 Münazara</th><th>R4 Nihai Pozisyon</th><th class="total">Toplam</th></tr></thead>
+          <tbody><tr><th scope='row'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M83.7733 42.8087C84.6678 40.1149 84.9771 37.2613 84.6807 34.4385C84.3843 31.6156 83.489 28.8885 82.0544 26.4394C77.6908 18.8436 68.9203 14.9365 60.3548 16.7725C57.9831 14.1344 54.9591 12.1668 51.5864 11.0673C48.2137 9.96772 44.611 9.77498 41.1402 10.5084C37.6694 11.2418 34.4527 12.8755 31.8132 15.2455C29.1736 17.6155 27.204 20.6383 26.1024 24.0103C23.3212 24.5806 20.6938 25.738 18.3958 27.405C16.0977 29.0721 14.1819 31.2104 12.7765 33.6772C8.36538 41.2609 9.3669 50.8267 15.2527 57.3327C14.3549 60.0251 14.0424 62.8782 14.3361 65.7012C14.6298 68.5241 15.523 71.2518 16.9558 73.7017C21.325 81.3002 30.1011 85.207 38.6712 83.3686C40.5554 85.4904 42.8707 87.1858 45.4623 88.3416C48.0539 89.4975 50.8622 90.0871 53.6999 90.0713C62.4793 90.079 70.2575 84.4114 72.9393 76.0515C75.7201 75.4802 78.347 74.3225 80.6449 72.6555C82.9427 70.9886 84.8587 68.8507 86.2649 66.3846C90.6227 58.8145 89.6172 49.3005 83.7733 42.8087ZM53.6999 84.8356C50.1955 84.8411 46.801 83.6129 44.1116 81.3661L44.5848 81.098L60.5123 71.9043C60.9087 71.6718 61.2379 71.3402 61.4674 70.942C61.6969 70.5439 61.8189 70.0929 61.8215 69.6333V47.1769L68.5553 51.072C68.6225 51.1063 68.6694 51.1707 68.6814 51.2456V69.854C68.6641 78.1208 61.9667 84.8183 53.6999 84.8356ZM21.4977 71.0843C19.7402 68.0497 19.1092 64.4925 19.7156 61.0386L20.1885 61.3225L36.1321 70.5165C36.5266 70.748 36.9757 70.87 37.4331 70.87C37.8905 70.87 38.3396 70.748 38.7341 70.5165L58.21 59.2883V67.0628C58.2081 67.1031 58.1973 67.1424 58.1782 67.1779C58.1591 67.2134 58.1322 67.2441 58.0996 67.2678L41.9671 76.5722C34.798 80.7022 25.6388 78.2463 21.4977 71.0843ZM17.3026 36.3898C19.0723 33.3357 21.8655 31.0062 25.1878 29.8138V48.7376C25.1818 49.1949 25.2986 49.6453 25.5261 50.042C25.7535 50.4387 26.0833 50.7671 26.4809 50.9928L45.8622 62.1739L39.1283 66.069C39.0919 66.0883 39.0513 66.0984 39.0101 66.0984C38.9689 66.0984 38.9283 66.0883 38.8919 66.069L22.7908 56.7809C15.6359 52.6337 13.1822 43.4816 17.3026 36.3112V36.3898ZM72.624 49.2426L53.1792 37.9512L59.8976 34.0718C59.9341 34.0524 59.9747 34.0423 60.016 34.0423C60.0573 34.0423 60.0979 34.0524 60.1344 34.0718L76.2355 43.3761C78.6973 44.7966 80.7043 46.8882 82.0221 49.4065C83.3398 51.9249 83.914 54.7661 83.6775 57.5985C83.4411 60.431 82.4038 63.1377 80.6867 65.4027C78.9696 67.6677 76.6436 69.3975 73.9803 70.3901V51.466C73.9663 51.0096 73.834 50.5647 73.5962 50.1749C73.3584 49.7851 73.0234 49.4638 72.624 49.2426ZM79.3261 39.1657L78.8529 38.8815L62.9411 29.6089C62.5442 29.376 62.0924 29.2532 61.6322 29.2532C61.172 29.2532 60.7202 29.376 60.3233 29.6089L40.8629 40.8374V33.0628C40.8587 33.0233 40.8654 32.9834 40.882 32.9473C40.8987 32.9113 40.9248 32.8803 40.9575 32.8579L57.0586 23.5692C59.5263 22.1476 62.3478 21.458 65.193 21.5811C68.0382 21.7042 70.7896 22.6348 73.1253 24.2642C75.461 25.8936 77.2845 28.1543 78.3825 30.782C79.4806 33.4097 79.8077 36.2957 79.3257 39.1025V39.1657H79.3261ZM37.1888 52.9484L30.455 49.069C30.4213 49.0487 30.3925 49.0212 30.3707 48.9884C30.3488 48.9557 30.3345 48.9186 30.3286 48.8797V30.3188C30.3323 27.4714 31.1466 24.6839 32.6761 22.2822C34.2057 19.8805 36.3874 17.9639 38.9661 16.7564C41.5448 15.549 44.4139 15.1005 47.2381 15.4636C50.0622 15.8267 52.7247 16.9862 54.9141 18.8067L54.4409 19.0748L38.5134 28.2686C38.117 28.5011 37.7879 28.8327 37.5584 29.2308C37.329 29.629 37.207 30.0799 37.2045 30.5395L37.1888 52.9487V52.9484ZM40.8472 45.0632L49.5209 40.0643L58.21 45.0635V55.0615L49.5523 60.0608L40.8632 55.0615L40.8472 45.0632Z" fill="currentColor"/></svg><span>Codex</span><span class='role role-elder'><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg> Elder</span></span></th><td><code>gpt-6.0-sol-high</code><span class='sub'>host bildirdi</span></td><td class='num'>61,2 sn<sup>†</sup></td><td class='num'>48,9 sn<sup>†</sup></td><td class='num'>52,3 sn<sup>†</sup></td><td class='num'>39,4 sn<sup>†</sup></td><td class='num total'>201,8 sn<sup>†</sup></td></tr><tr><th scope='row'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M25.7146 63.2153L41.4393 54.3917L41.7025 53.6226L41.4393 53.1976H40.6705L38.0394 53.0359L29.054 52.7929L21.2624 52.4691L13.7134 52.0644L11.8111 51.6594L10.0303 49.3118L10.2123 48.138L11.8111 47.0657L14.0981 47.2681L19.1574 47.6119L26.7467 48.138L32.2516 48.4618L40.4073 49.3118H41.7025L41.8846 48.7857L41.4393 48.4618L41.0955 48.138L33.243 42.8155L24.7432 37.1894L20.2909 33.9513L17.8824 32.3119L16.6684 30.774L16.1422 27.4147L18.328 25.0062L21.2624 25.2088L22.0112 25.4112L24.9861 27.6979L31.3407 32.616L39.6381 38.7273L40.8525 39.7391L41.3381 39.395L41.399 39.1523L40.8525 38.2415L36.3394 30.0858L31.5227 21.7883L29.3775 18.3478L28.811 16.2837C28.6087 15.4334 28.4669 14.7252 28.4669 13.8549L30.9563 10.4753L32.3321 10.0303L35.6515 10.4756L37.0479 11.6897L39.112 16.4052L42.4513 23.8327L47.6321 33.9313L49.15 36.9265L49.9594 39.6991L50.2632 40.5491H50.7894V40.0632L51.2141 34.3766L52.0035 27.3944L52.7726 18.4087L53.0358 15.8793L54.2905 12.8435L56.7795 11.2041L58.7224 12.135L60.3212 14.422L60.0986 15.899L59.1474 22.0718L57.2857 31.7458L56.0713 38.2218H56.7795L57.5892 37.4121L60.8677 33.061L66.3723 26.18L68.801 23.448L71.6342 20.4325L73.4556 18.9957H76.8962L79.4255 22.7601L78.2926 26.6456L74.7509 31.1384L71.8163 34.943L67.607 40.6097L64.9758 45.1431L65.2188 45.5072L65.8464 45.4466L75.358 43.4228L80.4984 42.4917L86.6304 41.4393L89.4033 42.7346L89.7065 44.0502L88.6135 46.7419L82.0566 48.3607L74.3662 49.8989L62.9118 52.6109L62.77 52.7121L62.9321 52.9144L68.0925 53.4L70.2987 53.5214H75.7021L85.7601 54.2702L88.3912 56.0108L89.9697 58.1358L89.7065 59.7545L85.6589 61.8189L80.1949 60.5236L67.4452 57.4881L63.0735 56.3952H62.4665V56.7596L66.1093 60.3213L72.7877 66.3523L81.1461 74.1236L81.5707 76.0462L80.4984 77.5638L79.3649 77.4021L72.0186 71.8772L69.1854 69.3879L62.77 63.9844H62.3453V64.5509L63.8223 66.7164L71.6342 78.4544L72.0389 82.0567L71.4725 83.2308L69.4487 83.939L67.2222 83.534L62.6485 77.1189L57.9333 69.8937L54.1284 63.4177L53.6631 63.6809L51.4167 87.8651L50.3644 89.0995L47.9356 90.0303L45.9121 88.4924L44.8392 86.0031L45.9118 81.0852L47.2071 74.6701L48.2594 69.5699L49.2106 63.2356L49.7773 61.131L49.7367 60.9892L49.2715 61.0498L44.4954 67.607L37.23 77.4224L31.4825 83.5746L30.1063 84.1211L27.7181 82.8864L27.9408 80.6805L29.2763 78.7177L37.2297 68.5988L42.026 62.3248L45.1227 58.7025L45.1024 58.176H44.9204L23.7917 71.8975L20.0274 72.3831L18.4083 70.8655L18.6106 68.3761L19.3798 67.5664L25.7343 63.195L25.7146 63.2153Z" fill="currentColor"/></svg><span>Claude</span></span></th><td><code>opus-5.5 · high</code></td><td class='num'>42,6 sn<span class='sub'>3.414 tok</span></td><td class='num'>35,0 sn<span class='sub'>2.698 tok</span></td><td class='num'>25,4 sn<span class='sub'>2.331 tok</span></td><td class='num'>27,3 sn<span class='sub'>2.291 tok</span></td><td class='num total'>130,3 sn<span class='sub'>10.734 tok</span><span class='sub'>8 in · 10.726 out</span></td></tr><tr><th scope='row'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M85.2843 88.0301C90.1329 91.6664 97.4057 89.2422 90.7389 82.5755C70.7389 63.1816 74.9813 9.84827 50.1329 9.84827C25.2843 9.84827 29.5267 63.1816 9.52673 82.5755C2.25402 89.8483 10.1328 91.6664 14.9813 88.0301C33.7692 75.3028 32.5571 52.8786 50.1329 52.8786C67.7086 52.8786 66.4965 75.3028 85.2843 88.0301Z" fill="currentColor"/></svg><span>Antigravity</span></span></th><td><code>gemini-3.8-flash · high</code></td><td class='num'>19,8 sn<span class='sub'>61.204 tok</span></td><td class='num'>16,2 sn<span class='sub'>71.882 tok</span></td><td class='num'>25,7 sn<span class='sub'>79.315 tok</span></td><td class='num'>14,8 sn<span class='sub'>86.409 tok</span></td><td class='num total'>76,5 sn<span class='sub'>298.810 tok</span><span class='sub'>280.375 in · 18.435 out</span></td></tr></tbody>
+        </table>
+        <p class="note">† Elder Cogitor&#x27;ın görüşünü kaydetmesine kadar geçen süre. Host kendi token&#x27;ını raporlamaz. Token yalnızca CLI raporladıysa görünür; şemalar sağlayıcıya göre değiştiği için sağlayıcılar arası toplam yoktur.</p>
+      </div>
+
+      <div class="decisions">
+        <div>
+          <h2 class="section-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Kararlar</h2>
+          <div class="card callout-green">
+            <div class="card-header"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><path d="m11 17 2 2a1 1 0 0 0 1.4 0l4.3-4.3a1 1 0 0 0 0-1.4l-2.8-2.8a1 1 0 0 0-1.4 0l-1.8 1.8"/><path d="m14.7 9.3-3.2-3.2a1 1 0 0 0-1.4 0l-4.3 4.3a1 1 0 0 0 0 1.4l2.8 2.8a1 1 0 0 0 1.4 0l1.8-1.8"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></svg> Uzlaşı</div></div>
+            <div class="card-body"><p>Cogitors için doğru sonraki adım yeni özellik yığmak değil, mevcut güven sözleşmesini sağlamlaştırmaktır. Önerilen sıra:</p>
+<p>Kısa karar: İlk sürüm hedefi P0 maddeleri ile <code>--evidence-file</code>, <code>status.next_action</code> ve küçük Tur 3 prompt değişikliği olmalı. Ollama/vLLM, MCP, TUI, ADR, PR botu, adaptif tur sayısı ve otomatik replay şimdilik eklenmemeli.</p><div class="agreement"><p>Üç katılımcı sabit beş turlu yapının korunması, erken çıkışın reddedilmesi, ağır TUI/pip bağımlılıklarının eklenmemesi ve kararların salt model konsensüsü yerine ampirik kanıtla desteklenmesi gerektiğinde birleşti. Codex ve Claude ayrıca sözleşme-kod tutarsızlıklarını, veri çıkışı özetini, <code>--evidence-file</code> yaklaşımını ve <code>status.next_action</code> çözümünü aynı öncelik sırasıyla destekledi. Claude testleri sayarak gerçek toplamın 52 olduğunu doğruladı.</p></div><div class='not-now'><span class='muted-label'>Şimdilik yok</span><ul><li><strong>Ollama/vLLM</strong> — Talep ve protokol uyum verisi yok; önce 20–30 oturum ölçülecek.</li><li><strong>MCP</strong> — Yeni bir sağlayıcı yüzeyi; gerçek talep kanıtlanmadı.</li><li><strong>TUI</strong> — Sıfır bağımlılık ilkesiyle çelişir.</li><li><strong>ADR</strong> — İkinci bir doğruluk kaynağı yaratır; <code>decision.md</code> zaten dönüştürülebilir.</li><li><strong>PR botu</strong> — Dışa dönük yayın riski taşır.</li><li><strong>Adaptif tur sayısı</strong> — Erken çıkış, konsensüsün doğruluk kanıtı olmadığı ilkesiyle çelişir.</li><li><strong>Otomatik replay</strong> — Dispatch sonrası uzak token tüketimi kanıtlanamaz; çift çağrı riski.</li></ul></div></div>
+          </div>
+          <div class="card callout-red">
+            <div class="card-header"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> Gerekçeli Ayrışma</div></div>
+            <div class="card-body"><div class='dissent-grid'><div class='dissent-block'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M85.2843 88.0301C90.1329 91.6664 97.4057 89.2422 90.7389 82.5755C70.7389 63.1816 74.9813 9.84827 50.1329 9.84827C25.2843 9.84827 29.5267 63.1816 9.52673 82.5755C2.25402 89.8483 10.1328 91.6664 14.9813 88.0301C33.7692 75.3028 32.5571 52.8786 50.1329 52.8786C67.7086 52.8786 66.4965 75.3028 85.2843 88.0301Z" fill="currentColor"/></svg><span>Antigravity</span></span><p>Yakın vadede <code>--verify-cmd</code>, otomatik <code>cogitor resume</code> ve Ollama/vLLM için CLI adaptörü istiyor.</p><p class='dissent-reply'><strong>Yanıt:</strong> Codex ve Claude: keyfi komut yürütme yeni güven yüzeyi açar; dispatch sonrası uzak tüketim bilinmediğinde otomatik resume çift çağrı riski taşır; yeni sağlayıcılar talep ve uyum verisi olmadan erken.</p></div></div></div>
+          </div>
+          <div class="card callout-amber">
+            <div class="card-header"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> Belirsizlikler ve Sınırlar</div></div>
+            <div class="card-body"><p>Gerçek oturumlardaki tekrar oranı, kalite kazanımı, sağlayıcı bazlı token kullanımı ve para maliyeti ölçülmedi. CLI usage şemaları karşılaştırılabilir olmayabilir. Antigravity iki turda önceki akran bağlamını işlememiş göründü; bunun model uyumu, argv aktarımı veya yanıt kalitesi kaynaklı olup olmadığı ayrı bir conformance testi gerektirir. <code>--evidence-file</code> arayüzünün dosya boyutu, redaksiyon ve hassas veri politikası henüz tasarlanmamıştır.</p></div>
+          </div>
+        </div>
+        <aside class='actions-col'><h2 class='section-title'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg> Aksiyonlar</h2><div class='card'><div class='card-header'><div class='card-title'><span class='prio prio-0'>P0</span></div></div><div class='card-body action-list'><label class='action'><input type='checkbox'><span><strong>Kod, CLI ve dokümantasyonu eşitleyin.</strong><span class='action-detail'><code>extend_timeout</code> tekrar çağrılarının gerçek azami çağrı sayısını ve deadline uzamasını açıkça raporlayın; ikinci retry sırasında dolu <code>cli-retry</code> dizini hatasını ve sinyal/iptal davranışını düzeltin. <code>run.py</code> tarafından kabul edilen <code>ultra</code> effort seçeneğini Cogitors CLI ile uyumlu hale getirin. Sabit model kataloğu açıklamalarını doğrulanmış dinamik veriye dayandırın veya yalnızca öneri olduklarını belirtin. README&#x27;deki 47/51 test sayılarını gerçek 52 ile eşitleyin. Her davranış düzeltmesine küçük bir regresyon testi ekleyin.</span></span></label><label class='action'><input type='checkbox'><span><strong>Veri çıkışı ve çağrı kapsamını dispatch öncesinde görünür yapın.</strong><span class='action-detail'>Sağlayıcı adları, gönderilecek dosya sayısı, toplam karakter/bayt, kapsanan turlar ve retry dahil azami çağrı sayısı makine-okunur özet olarak gösterilsin; host bu kapsam için tek ve açık kullanıcı onayı alsın. Bu oturumda kaynak gönderimi ile çapraz-tur metni için ayrı onay gerekmesi, boşluğun gerçek olduğunu gösterdi.</span></span></label></div></div><div class='card'><div class='card-header'><div class='card-title'><span class='prio prio-1'>P1</span></div></div><div class='card-body action-list'><label class='action'><input type='checkbox'><span><strong>Ampirik kanıtı immutable snapshot&#x27;a ekleyin; fakat ilk sürümde Cogitors&#x27;a keyfi komut çalıştırmayın.</strong><span class='action-detail'>Hostun kullanıcı onayıyla ürettiği test/lint/statik analiz raporu <code>--evidence-file</code> ile hash&#x27;lenip Tur 1&#x27;den itibaren bütün danışmanlara verilsin. Daha sonra gerçek talep oluşursa argv-listesi, timeout ve çıktı sınırı olan bir yürütücü ayrıca tasarlanabilir; shell string kabul edilmemeli.</span></span></label><label class='action'><input type='checkbox'><span><strong>Yeni bir replay motoru yerine güvenli kurtarma yönlendirmesi ekleyin.</strong><span class='action-detail'><code>status.next_action</code>, mevcut state&#x27;e göre çalıştırılabilecek tek güvenli sonraki komutu versin. Dispatch edilmemiş tur sürdürülebilir; <code>dispatched</code> işareti olup sonuç belirsizse otomatik yeniden çağrı yapılmamalıdır çünkü uzaktaki token tüketimi kanıtlanamaz.</span></span></label><label class='action'><input type='checkbox'><span><strong>Beş turlu omurgayı koruyun ve yalnızca Tur 3 prompt&#x27;unu iyileştirin: ayrışma varsa kaynak referanslı itirazlara odaklansın; ayrışma yoksa ortak varsayımların en zayıfını çürütmeye çalışsın.</strong><span class='action-detail'>Erken çıkış eklemeyin.</span></span></label></div></div><div class='card'><div class='card-header'><div class='card-title'><span class='prio prio-2'>P2</span></div></div><div class='card-body action-list'><label class='action'><input type='checkbox'><span><strong>Önce ölçün, sonra genişletin.</strong><span class='action-detail'>20–30 gerçek oturum boyunca tur başına süre, sağlayıcıların ham usage verisi, görüş değişimi/tekrar oranı ve protokol-uyum başarısı kaydedilsin. Ancak ölçüm desteklerse quick profil, yerel model/exec adapter, ADR, TUI veya GitHub PR botu değerlendirilsin. Sağlayıcı usage şemaları farklı olduğundan kesin para maliyeti veya karşılaştırılabilir toplam token iddiası yapılmamalı.</span></span></label></div></div></aside>
+      </div>
+    </div>
+
+    <div id="page-matrix" data-group="page" hidden>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> Müzakere Duruş Evrimi Matrisi</div></div>
+        <p class="note">Her Cogitor&#x27;ın her turdaki tek cümlelik duruşu. Bir sütunda aşağı inerek görüşün nasıl değiştiğini, bir satırda soldan sağa okuyarak aynı turda Cogitor&#x27;ları karşılaştırın.</p>
+        <table class="matrix-table">
+          <thead><tr><th>Tur</th><th><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M83.7733 42.8087C84.6678 40.1149 84.9771 37.2613 84.6807 34.4385C84.3843 31.6156 83.489 28.8885 82.0544 26.4394C77.6908 18.8436 68.9203 14.9365 60.3548 16.7725C57.9831 14.1344 54.9591 12.1668 51.5864 11.0673C48.2137 9.96772 44.611 9.77498 41.1402 10.5084C37.6694 11.2418 34.4527 12.8755 31.8132 15.2455C29.1736 17.6155 27.204 20.6383 26.1024 24.0103C23.3212 24.5806 20.6938 25.738 18.3958 27.405C16.0977 29.0721 14.1819 31.2104 12.7765 33.6772C8.36538 41.2609 9.3669 50.8267 15.2527 57.3327C14.3549 60.0251 14.0424 62.8782 14.3361 65.7012C14.6298 68.5241 15.523 71.2518 16.9558 73.7017C21.325 81.3002 30.1011 85.207 38.6712 83.3686C40.5554 85.4904 42.8707 87.1858 45.4623 88.3416C48.0539 89.4975 50.8622 90.0871 53.6999 90.0713C62.4793 90.079 70.2575 84.4114 72.9393 76.0515C75.7201 75.4802 78.347 74.3225 80.6449 72.6555C82.9427 70.9886 84.8587 68.8507 86.2649 66.3846C90.6227 58.8145 89.6172 49.3005 83.7733 42.8087ZM53.6999 84.8356C50.1955 84.8411 46.801 83.6129 44.1116 81.3661L44.5848 81.098L60.5123 71.9043C60.9087 71.6718 61.2379 71.3402 61.4674 70.942C61.6969 70.5439 61.8189 70.0929 61.8215 69.6333V47.1769L68.5553 51.072C68.6225 51.1063 68.6694 51.1707 68.6814 51.2456V69.854C68.6641 78.1208 61.9667 84.8183 53.6999 84.8356ZM21.4977 71.0843C19.7402 68.0497 19.1092 64.4925 19.7156 61.0386L20.1885 61.3225L36.1321 70.5165C36.5266 70.748 36.9757 70.87 37.4331 70.87C37.8905 70.87 38.3396 70.748 38.7341 70.5165L58.21 59.2883V67.0628C58.2081 67.1031 58.1973 67.1424 58.1782 67.1779C58.1591 67.2134 58.1322 67.2441 58.0996 67.2678L41.9671 76.5722C34.798 80.7022 25.6388 78.2463 21.4977 71.0843ZM17.3026 36.3898C19.0723 33.3357 21.8655 31.0062 25.1878 29.8138V48.7376C25.1818 49.1949 25.2986 49.6453 25.5261 50.042C25.7535 50.4387 26.0833 50.7671 26.4809 50.9928L45.8622 62.1739L39.1283 66.069C39.0919 66.0883 39.0513 66.0984 39.0101 66.0984C38.9689 66.0984 38.9283 66.0883 38.8919 66.069L22.7908 56.7809C15.6359 52.6337 13.1822 43.4816 17.3026 36.3112V36.3898ZM72.624 49.2426L53.1792 37.9512L59.8976 34.0718C59.9341 34.0524 59.9747 34.0423 60.016 34.0423C60.0573 34.0423 60.0979 34.0524 60.1344 34.0718L76.2355 43.3761C78.6973 44.7966 80.7043 46.8882 82.0221 49.4065C83.3398 51.9249 83.914 54.7661 83.6775 57.5985C83.4411 60.431 82.4038 63.1377 80.6867 65.4027C78.9696 67.6677 76.6436 69.3975 73.9803 70.3901V51.466C73.9663 51.0096 73.834 50.5647 73.5962 50.1749C73.3584 49.7851 73.0234 49.4638 72.624 49.2426ZM79.3261 39.1657L78.8529 38.8815L62.9411 29.6089C62.5442 29.376 62.0924 29.2532 61.6322 29.2532C61.172 29.2532 60.7202 29.376 60.3233 29.6089L40.8629 40.8374V33.0628C40.8587 33.0233 40.8654 32.9834 40.882 32.9473C40.8987 32.9113 40.9248 32.8803 40.9575 32.8579L57.0586 23.5692C59.5263 22.1476 62.3478 21.458 65.193 21.5811C68.0382 21.7042 70.7896 22.6348 73.1253 24.2642C75.461 25.8936 77.2845 28.1543 78.3825 30.782C79.4806 33.4097 79.8077 36.2957 79.3257 39.1025V39.1657H79.3261ZM37.1888 52.9484L30.455 49.069C30.4213 49.0487 30.3925 49.0212 30.3707 48.9884C30.3488 48.9557 30.3345 48.9186 30.3286 48.8797V30.3188C30.3323 27.4714 31.1466 24.6839 32.6761 22.2822C34.2057 19.8805 36.3874 17.9639 38.9661 16.7564C41.5448 15.549 44.4139 15.1005 47.2381 15.4636C50.0622 15.8267 52.7247 16.9862 54.9141 18.8067L54.4409 19.0748L38.5134 28.2686C38.117 28.5011 37.7879 28.8327 37.5584 29.2308C37.329 29.629 37.207 30.0799 37.2045 30.5395L37.1888 52.9487V52.9484ZM40.8472 45.0632L49.5209 40.0643L58.21 45.0635V55.0615L49.5523 60.0608L40.8632 55.0615L40.8472 45.0632Z" fill="currentColor"/></svg><span>Codex</span><span class='role role-elder'><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg> Elder</span></span></th><th><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M25.7146 63.2153L41.4393 54.3917L41.7025 53.6226L41.4393 53.1976H40.6705L38.0394 53.0359L29.054 52.7929L21.2624 52.4691L13.7134 52.0644L11.8111 51.6594L10.0303 49.3118L10.2123 48.138L11.8111 47.0657L14.0981 47.2681L19.1574 47.6119L26.7467 48.138L32.2516 48.4618L40.4073 49.3118H41.7025L41.8846 48.7857L41.4393 48.4618L41.0955 48.138L33.243 42.8155L24.7432 37.1894L20.2909 33.9513L17.8824 32.3119L16.6684 30.774L16.1422 27.4147L18.328 25.0062L21.2624 25.2088L22.0112 25.4112L24.9861 27.6979L31.3407 32.616L39.6381 38.7273L40.8525 39.7391L41.3381 39.395L41.399 39.1523L40.8525 38.2415L36.3394 30.0858L31.5227 21.7883L29.3775 18.3478L28.811 16.2837C28.6087 15.4334 28.4669 14.7252 28.4669 13.8549L30.9563 10.4753L32.3321 10.0303L35.6515 10.4756L37.0479 11.6897L39.112 16.4052L42.4513 23.8327L47.6321 33.9313L49.15 36.9265L49.9594 39.6991L50.2632 40.5491H50.7894V40.0632L51.2141 34.3766L52.0035 27.3944L52.7726 18.4087L53.0358 15.8793L54.2905 12.8435L56.7795 11.2041L58.7224 12.135L60.3212 14.422L60.0986 15.899L59.1474 22.0718L57.2857 31.7458L56.0713 38.2218H56.7795L57.5892 37.4121L60.8677 33.061L66.3723 26.18L68.801 23.448L71.6342 20.4325L73.4556 18.9957H76.8962L79.4255 22.7601L78.2926 26.6456L74.7509 31.1384L71.8163 34.943L67.607 40.6097L64.9758 45.1431L65.2188 45.5072L65.8464 45.4466L75.358 43.4228L80.4984 42.4917L86.6304 41.4393L89.4033 42.7346L89.7065 44.0502L88.6135 46.7419L82.0566 48.3607L74.3662 49.8989L62.9118 52.6109L62.77 52.7121L62.9321 52.9144L68.0925 53.4L70.2987 53.5214H75.7021L85.7601 54.2702L88.3912 56.0108L89.9697 58.1358L89.7065 59.7545L85.6589 61.8189L80.1949 60.5236L67.4452 57.4881L63.0735 56.3952H62.4665V56.7596L66.1093 60.3213L72.7877 66.3523L81.1461 74.1236L81.5707 76.0462L80.4984 77.5638L79.3649 77.4021L72.0186 71.8772L69.1854 69.3879L62.77 63.9844H62.3453V64.5509L63.8223 66.7164L71.6342 78.4544L72.0389 82.0567L71.4725 83.2308L69.4487 83.939L67.2222 83.534L62.6485 77.1189L57.9333 69.8937L54.1284 63.4177L53.6631 63.6809L51.4167 87.8651L50.3644 89.0995L47.9356 90.0303L45.9121 88.4924L44.8392 86.0031L45.9118 81.0852L47.2071 74.6701L48.2594 69.5699L49.2106 63.2356L49.7773 61.131L49.7367 60.9892L49.2715 61.0498L44.4954 67.607L37.23 77.4224L31.4825 83.5746L30.1063 84.1211L27.7181 82.8864L27.9408 80.6805L29.2763 78.7177L37.2297 68.5988L42.026 62.3248L45.1227 58.7025L45.1024 58.176H44.9204L23.7917 71.8975L20.0274 72.3831L18.4083 70.8655L18.6106 68.3761L19.3798 67.5664L25.7343 63.195L25.7146 63.2153Z" fill="currentColor"/></svg><span>Claude</span></span></th><th><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M85.2843 88.0301C90.1329 91.6664 97.4057 89.2422 90.7389 82.5755C70.7389 63.1816 74.9813 9.84827 50.1329 9.84827C25.2843 9.84827 29.5267 63.1816 9.52673 82.5755C2.25402 89.8483 10.1328 91.6664 14.9813 88.0301C33.7692 75.3028 32.5571 52.8786 50.1329 52.8786C67.7086 52.8786 66.4965 75.3028 85.2843 88.0301Z" fill="currentColor"/></svg><span>Antigravity</span></span></th></tr></thead>
+          <tbody><tr><th scope='row'><span class='sub'>R1</span>Bağımsız Analiz</th><td class='matrix-stance'>Önce yeni özellik değil, mevcut güven sınırını ürünleştirmek gerekir.</td><td class='matrix-stance'>Önce güven değişmezlerini düzeltmek, sonra kanıt katmanını eklemek gerekiyor.</td><td class='matrix-stance'>The Cogitors; bağımsız analiz, çapraz denetim ve sıfır dış bağımlılık prensipleriyle çoklu model müzakeresinde sağlam bir zemin oluşturmuştur (cogitor.py, run.py).</td></tr><tr><th scope='row'><span class='sub'>R2</span>Yeniden Değerlendirme</th><td class='matrix-stance'>Claude&#x27;un somut tutarsızlıkları nedeniyle öncelik sıramı değiştirdim: yeni doğrulama özelliğinden önce mevcut sözleşme ile uygulamayı eşitlemek P0 olmalı.</td><td class='matrix-stance'>Codex&#x27;in veri çıkışı görünürlüğü önerisini benimsiyorum. İlk turda bunu atlamıştım.</td><td class='matrix-stance'>Sağlanan bağlamda akran görüşü verisi (previous_rounds) yer almadığı için temel metodolojik çerçevem korunmuş; mimari snapshot (cogitor.py, run.py) ışığında öncelikli pozisyonum şu üç somut başlıkta rafine edilmiştir:</td></tr><tr><th scope='row'><span class='sub'>R3</span>Münazara</th><td class='matrix-stance'>Antigravity&#x27;ye itiraz: “tamamlanmamış işleri yeniden kuyruğa almak” güvenli değildir.</td><td class='matrix-stance'>&quot;previous_rounds yok&quot; iddiası yanlış. Tur 2&#x27;de Tur 1 görüşleri prompt&#x27;a konuyor (prompt_for: number - 1).</td><td class='matrix-stance'>İtiraz 1 (Erken Çıkış / Early Exit Yanılgısı):</td></tr><tr><th scope='row'><span class='sub'>R4</span>Nihai Pozisyon</th><td class='matrix-stance'>Antigravity&#x27;nin erken uzlaşmada Tur 3&#x27;ü “konsensüsü çürütme/stres testi”ne çevirme önerisini kabul ediyorum.</td><td class='matrix-stance'>Codex (ADR iki doğruluk kaynağı yaratır): Kabul. cogitor-final-*.md ve .json zaten dönüştürülebilir.</td><td class='matrix-stance dissent'>Erken Mutabakat (Early Exit) Önerisi [REDDEDİLDİ]:<span class='kx-status kx-status-failed dissent-tag'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;flex:none;"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> Gerekçeli ayrışma</span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div id='cog-codex' data-group='page' class='cogitor-layout' hidden><aside class='cogitor-side'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M83.7733 42.8087C84.6678 40.1149 84.9771 37.2613 84.6807 34.4385C84.3843 31.6156 83.489 28.8885 82.0544 26.4394C77.6908 18.8436 68.9203 14.9365 60.3548 16.7725C57.9831 14.1344 54.9591 12.1668 51.5864 11.0673C48.2137 9.96772 44.611 9.77498 41.1402 10.5084C37.6694 11.2418 34.4527 12.8755 31.8132 15.2455C29.1736 17.6155 27.204 20.6383 26.1024 24.0103C23.3212 24.5806 20.6938 25.738 18.3958 27.405C16.0977 29.0721 14.1819 31.2104 12.7765 33.6772C8.36538 41.2609 9.3669 50.8267 15.2527 57.3327C14.3549 60.0251 14.0424 62.8782 14.3361 65.7012C14.6298 68.5241 15.523 71.2518 16.9558 73.7017C21.325 81.3002 30.1011 85.207 38.6712 83.3686C40.5554 85.4904 42.8707 87.1858 45.4623 88.3416C48.0539 89.4975 50.8622 90.0871 53.6999 90.0713C62.4793 90.079 70.2575 84.4114 72.9393 76.0515C75.7201 75.4802 78.347 74.3225 80.6449 72.6555C82.9427 70.9886 84.8587 68.8507 86.2649 66.3846C90.6227 58.8145 89.6172 49.3005 83.7733 42.8087ZM53.6999 84.8356C50.1955 84.8411 46.801 83.6129 44.1116 81.3661L44.5848 81.098L60.5123 71.9043C60.9087 71.6718 61.2379 71.3402 61.4674 70.942C61.6969 70.5439 61.8189 70.0929 61.8215 69.6333V47.1769L68.5553 51.072C68.6225 51.1063 68.6694 51.1707 68.6814 51.2456V69.854C68.6641 78.1208 61.9667 84.8183 53.6999 84.8356ZM21.4977 71.0843C19.7402 68.0497 19.1092 64.4925 19.7156 61.0386L20.1885 61.3225L36.1321 70.5165C36.5266 70.748 36.9757 70.87 37.4331 70.87C37.8905 70.87 38.3396 70.748 38.7341 70.5165L58.21 59.2883V67.0628C58.2081 67.1031 58.1973 67.1424 58.1782 67.1779C58.1591 67.2134 58.1322 67.2441 58.0996 67.2678L41.9671 76.5722C34.798 80.7022 25.6388 78.2463 21.4977 71.0843ZM17.3026 36.3898C19.0723 33.3357 21.8655 31.0062 25.1878 29.8138V48.7376C25.1818 49.1949 25.2986 49.6453 25.5261 50.042C25.7535 50.4387 26.0833 50.7671 26.4809 50.9928L45.8622 62.1739L39.1283 66.069C39.0919 66.0883 39.0513 66.0984 39.0101 66.0984C38.9689 66.0984 38.9283 66.0883 38.8919 66.069L22.7908 56.7809C15.6359 52.6337 13.1822 43.4816 17.3026 36.3112V36.3898ZM72.624 49.2426L53.1792 37.9512L59.8976 34.0718C59.9341 34.0524 59.9747 34.0423 60.016 34.0423C60.0573 34.0423 60.0979 34.0524 60.1344 34.0718L76.2355 43.3761C78.6973 44.7966 80.7043 46.8882 82.0221 49.4065C83.3398 51.9249 83.914 54.7661 83.6775 57.5985C83.4411 60.431 82.4038 63.1377 80.6867 65.4027C78.9696 67.6677 76.6436 69.3975 73.9803 70.3901V51.466C73.9663 51.0096 73.834 50.5647 73.5962 50.1749C73.3584 49.7851 73.0234 49.4638 72.624 49.2426ZM79.3261 39.1657L78.8529 38.8815L62.9411 29.6089C62.5442 29.376 62.0924 29.2532 61.6322 29.2532C61.172 29.2532 60.7202 29.376 60.3233 29.6089L40.8629 40.8374V33.0628C40.8587 33.0233 40.8654 32.9834 40.882 32.9473C40.8987 32.9113 40.9248 32.8803 40.9575 32.8579L57.0586 23.5692C59.5263 22.1476 62.3478 21.458 65.193 21.5811C68.0382 21.7042 70.7896 22.6348 73.1253 24.2642C75.461 25.8936 77.2845 28.1543 78.3825 30.782C79.4806 33.4097 79.8077 36.2957 79.3257 39.1025V39.1657H79.3261ZM37.1888 52.9484L30.455 49.069C30.4213 49.0487 30.3925 49.0212 30.3707 48.9884C30.3488 48.9557 30.3345 48.9186 30.3286 48.8797V30.3188C30.3323 27.4714 31.1466 24.6839 32.6761 22.2822C34.2057 19.8805 36.3874 17.9639 38.9661 16.7564C41.5448 15.549 44.4139 15.1005 47.2381 15.4636C50.0622 15.8267 52.7247 16.9862 54.9141 18.8067L54.4409 19.0748L38.5134 28.2686C38.117 28.5011 37.7879 28.8327 37.5584 29.2308C37.329 29.629 37.207 30.0799 37.2045 30.5395L37.1888 52.9487V52.9484ZM40.8472 45.0632L49.5209 40.0643L58.21 45.0635V55.0615L49.5523 60.0608L40.8632 55.0615L40.8472 45.0632Z" fill="currentColor"/></svg><span>Codex</span><span class='role role-elder'><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg> Elder</span></span><dl class='kv'><dt>Model</dt><dd><code>gpt-6.0-sol-high</code><span class='sub'>host bildirdi</span></dd><dt>Süre</dt><dd>201,8 sn</dd><dt>Durum</dt><dd>4/4 başarılı</dd></dl><nav class='round-nav'><a href='#cog-codex-r1'><span>R1 Bağımsız Analiz</span><span class='sub'>61,2 sn</span></a><a href='#cog-codex-r2'><span>R2 Yeniden Değerlendirme</span><span class='sub'>48,9 sn</span></a><a href='#cog-codex-r3'><span>R3 Münazara</span><span class='sub'>52,3 sn</span></a><a href='#cog-codex-r4'><span>R4 Nihai Pozisyon</span><span class='sub'>39,4 sn</span></a></nav></aside><div><section id='cog-codex-r1' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 1</span>Bağımsız Analiz</div><div class='round-meta'><span class='mono sub'>61,2 sn</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h2>Codex bağımsız görüşü</h2>
+<p>Önce yeni özellik değil, mevcut güven sınırını ürünleştirmek gerekir. Bugünkü yapı güçlü bir çekirdeğe sahip: kaynak hash&#x27;leri, istek/sonuç provenance kontrolü, başkan görüşünü akranlardan önce kilitleme, tek-dispatch işareti, kısmi heyet kararı ve 52/52 geçen test. Buna karşılık <code>cogitor.py</code> 1.590 satıra ulaşmış, README hâlâ “47 test” diyor ve “resume” ihtiyacının önemli kısmı zaten kalıcı <code>state.json</code> + <code>status</code>/tur komutlarıyla karşılanıyor. Yol haritası şu sırada olmalı:</p>
+<ol>
+<li><strong>Kanıt paketi / doğrulama kapısı.</strong> Kullanıcının açıkça verdiği salt-okunur doğrulama komutlarını (<code>test</code>, <code>lint</code>, statik analiz) model çağrılarından önce bir kez çalıştırıp stdout özeti, exit code, süre ve komut hash&#x27;ini immutable snapshot&#x27;a ekleyin. Modeller komut çalıştırmasın; aynı kanıtı yorumlasın. Böylece “konsensüs doğruluk değildir” ilkesi gerçekten uygulanır. Zorluk: güvenilmeyen komutları otomatik çalıştırmamak; yalnızca kullanıcı onaylı allowlist şart.</li>
+<li><strong>Veri çıkışı görünürlüğü ve açık onay.</strong> <code>init/check</code> kaç dosya/karakterin hangi dış sağlayıcılara gideceğini, <code>context_only</code> durumunu ve çıktı konumunu makine-okunur biçimde göstermeli. Gizli anahtar taraması kesin garanti diye sunulmamalı; en azından dosya adı/ölçek özeti ve host onay kapısı sağlanmalı. Bu, gerçek kullanımda TUI&#x27;dan daha kritik.</li>
+<li><strong>Durum kurtarmayı belgeleyin; yeni <code>resume</code> motoru yazmayın.</strong> Mevcut state machine zaten süreçler arası devam ediyor. <code>status</code> çıktısına tek bir <code>next_action</code>/örnek komut eklemek ve <code>cogitor resume RUN_DIR</code> için salt yönlendirme yapmak yeterli. Dispatch işareti bulunan belirsiz crash&#x27;te otomatik tekrar kesinlikle yapılmamalı.</li>
+<li><strong>Sabit dört danışman turunu varsayılan tutun; adaptif erken çıkışı erteleyin.</strong> Erken mutabakat yanlış güven üretir ve tasarrufu ölçülmemiştir. Daha ucuz işler için zaten tek-ajan skill&#x27;leri vardır. Önce tekrar oranı, görüş değişimi ve tur başına süre/token telemetrisiyle 20-30 gerçek oturum ölçülsün; ancak sonra kullanıcı onaylı <code>quick</code> profil düşünülsün. Derin alt-münazara da otomatik değil, yeni açık bir oturum olmalı.</li>
+<li><strong>Ekosistemi dondurun, çekirdeği stabilize edin.</strong> Ollama/vLLM/MCP, ADR, PR botu ve TUI aynı anda eklenmemeli. Dördüncü gerçek sağlayıcı talebi ortaya çıkınca <code>diagnose/command/parse</code> için küçük bir adapter sözleşmesi çıkarılır; bugün tek uygulamalı soyutlama gereksizdir. Önce sürümleme, doküman-test uyumu ve 1.590 satırlık dosyadan yalnızca stabil HTML/konfigürasyon bölümlerinin davranış değiştirmeden ayrılması değerlendirilmelidir.</li>
+</ol>
+<p>Belirsizlik: Gerçek maliyet/tekrar oranı verisi yok; sağlayıcı kullanım şemaları kıyaslanabilir değil. Bu yüzden token veya para bütçesini “kesin maliyet” olarak uygulamak yerine ham usage verisini sağlayıcı bazında korumak gerekir.</p></div></section><section id='cog-codex-r2' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 2</span>Yeniden Değerlendirme</div><div class='round-meta'><span class='mono sub'>48,9 sn</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h2>Codex — yeniden değerlendirme</h2>
+<p>Claude&#x27;un somut tutarsızlıkları nedeniyle öncelik sıramı değiştirdim: yeni doğrulama özelliğinden önce <strong>mevcut sözleşme ile uygulamayı eşitlemek</strong> P0 olmalı. <code>extend_timeout</code> kullanıcı kararıyla çalışsa da README&#x27;nin “en fazla 8 çağrı” ifadesi retry çağrılarını kapsamıyor ve deadline&#x27;ı uzatıyor; test sayıları da güncel değil. Ayrıca runner <code>ultra</code> kabul ederken Cogitors CLI seçeneği kabul etmiyor. Bunlar küçük diff&#x27;lerle çözülebilen, güvenilirlik iddiasını doğrudan etkileyen hatalardır. İlk kilometre taşı: tek bir doğruluk tablosu, doküman/CLI/test eşlemesi ve regresyon testleri.</p>
+<p>Üç görüşün birleştiği ikinci öncelik <strong>kullanıcı onaylı deterministik kanıt paketi</strong>dir. Ancak <code>--verify-cmd</code> ile keyfi shell metni almak güven sınırını büyütür. Daha güvenli minimum sürüm, hostun zaten çalıştırdığı komutların sonuçlarını <code>--evidence-file</code> ile immutable snapshot&#x27;a eklemek; komut yürütmeyi Cogitors&#x27;a ancak açık güven modeli tanımlandıktan sonra vermektir.</p>
+<p>Antigravity&#x27;nin tam <code>resume</code> önerisini kabul etmiyorum: dispatch işareti mevcutken yeniden kuyruklama çift ücret riski yaratır. Önce <code>status.next_action</code> ve crash durumlarını açıklayan yönlendirme eklenmeli; yalnızca hiç dispatch edilmemiş veya eksiksiz sonucu doğrulanmış durumlar otomatik ilerleyebilir.</p>
+<p>Claude&#x27;un claim ledger fikri değerlidir fakat üç CLI&#x27;a zorunlu yapılandırılmış çıktı dayatmak kırılgan olabilir. İlk sürümde Tur 3 prompt&#x27;una “itiraz edilen iddia + kaynak hash/path” tablosu ekletmek yeterli; erken tur atlama veri olmadan yapılmamalı.</p>
+<p>Yerel model adaptörü, ADR, TUI ve PR botu ertelenmeli. Gerçek dördüncü sağlayıcı geldiğinde adapter çıkarılır. Veri çıkışı özeti/onayı ise ayrı bir P0&#x27;dır; bu oturumda bile dış sağlayıcıya kaynak ve sonraki tur metni gönderimi için iki ayrı onay ihtiyacı doğdu.</p>
+<p>Belirsizlik: tur tekrarı, token ve kalite kazanımı ölçülmediğinden adaptif protokol kararı bugün kanıta dayalı verilemez.</p></div></section><section id='cog-codex-r3' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 3</span>Münazara</div><div class='round-meta'><span class='mono sub'>52,3 sn</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h2>Codex — odaklı münazara</h2>
+<p><strong>Antigravity&#x27;ye itiraz:</strong> “tamamlanmamış işleri yeniden kuyruğa almak” güvenli değildir. <code>dispatched</code> işareti, sağlayıcının ücretli işi başlatıp sonucun yerelde yazılamadığı durumu özellikle belirsiz bırakır. Hangi provenance kanıtı uzaktaki tüketimi ispatlayacak? Cevap yoksa <code>resume</code> yalnızca <code>next_action</code> üreten bir tanı komutu olmalı; otomatik tekrar yapmamalıdır. Ayrıca Round 2 yanıtınız <code>previous_rounds</code> verilmediğini söylüyor, oysa tur prompt&#x27;u önceki üç görüşü içeriyordu. Bu, yeni/yerel model eklemeden önce <strong>protokol uyum testi</strong> gerektiğine somut kanıttır.</p>
+<p><strong>Doğrulama komutu ayrışması:</strong> Claude ile ortak itirazım, <code>--verify-cmd</code> biçimindeki keyfi komut yürütmenin Cogitors&#x27;un güven yüzeyini gereksiz büyütmesidir. İlk sürümde Cogitors komut çalıştırmasın; hostun kullanıcı onayıyla ürettiği test/lint raporu <code>--evidence-file</code> olarak hash&#x27;lenip Tur 1 snapshot&#x27;ına girsin. Talep kanıtlanırsa daha sonra argv-listesi, timeout ve çıktı sınırı olan bir yürütücü eklenebilir; shell string kabul edilmemeli.</p>
+<p><strong>Claude&#x27;a kısmi itiraz:</strong> ADR “ucuz” olsa da otomatik oluşturulan ikinci karar dosyası iki doğruluk kaynağı yaratabilir. Mevcut final Markdown zaten dönüştürülebilir. Gerçek kullanıcı talebi gelene kadar ek çıktı üretmeyelim.</p>
+<p><strong>Düzeltilmiş pozisyon:</strong></p>
+<ol>
+<li>P0: <code>extend_timeout</code>, çağrı sınırı, deadline, tekrar-retry dizini, effort seçenekleri ve test sayısı gibi sözleşme kaymalarını düzeltin; her iddia için test bırakın.</li>
+<li>P0: dış sağlayıcıya gidecek dosya/karakter/tur/sağlayıcı özetini gösterip tek, kapsamı açık onay alın.</li>
+<li>P1: <code>--evidence-file</code> kanıt snapshot&#x27;ı ve kaynak referanslı Tur 3 itiraz tablosu.</li>
+<li>P1: <code>status.next_action</code>; belirsiz dispatch&#x27;te yeniden çağrı yok.</li>
+<li>Sonra ölçüm: tur başına tekrar/değişim/usage ve model protokol-uyum skoru. Ancak bu veriden sonra quick profil veya yeni sağlayıcı tartışılmalı.</li>
+</ol></div></section><section id='cog-codex-r4' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 4</span>Nihai Pozisyon</div><div class='round-meta'><span class='mono sub'>39,4 sn</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h2>Codex — nihai pozisyon</h2>
+<p>Antigravity&#x27;nin erken uzlaşmada Tur 3&#x27;ü “konsensüsü çürütme/stres testi”ne çevirme önerisini kabul ediyorum. Bu, tur atlamadan karar kalitesini yükselten küçük bir prompt değişikliğidir. Yerel model ve otomatik <code>resume</code> önerilerini ise reddediyorum: mevcut talep kanıtlanmamıştır; <code>dispatched</code> sonrası uzak tüketim belirsizliği çözülmemiştir. Antigravity&#x27;nin önceki tur bağlamını iki kez işlememesi de sağlayıcı genişlemesinden önce protokol-uyum ölçümü gerektiğini gösterir.</p>
+<h3>Önerilen yol haritası</h3>
+<ol>
+<li><strong>P0 — Güven sözleşmesini düzeltin.</strong> <code>extend_timeout</code> için çağrı sayısı/deadline raporu, ikinci retry dizini ve sinyal davranışı; <code>ultra</code> CLI uyumu; model kataloğunda doğrulanmamış sabit etiketler; README&#x27;deki 47/51 ile gerçek 52 test farkı. Her düzeltmeye tek regresyon testi ekleyin.</li>
+<li><strong>P0 — Veri çıkışını görünür kılın.</strong> Dispatch öncesi sağlayıcılar, dosya sayısı, toplam karakter/bayt, tur kapsamı ve tahmini azami çağrı sayısı gösterilsin; host tek ve kapsamı açık onay alsın.</li>
+<li><strong>P1 — Kanıt snapshot&#x27;ı.</strong> Yeni komut yürütme yüzeyi açmadan <code>--evidence-file</code> ile host tarafından üretilmiş test/lint/statik analiz çıktısını hash&#x27;leyip Tur 1&#x27;e dahil edin.</li>
+<li><strong>P1 — Kurtarma yönlendirmesi.</strong> <code>status.next_action</code> güvenli sonraki komutu söylesin. Dispatch edilmemiş tur devam edebilir; dispatch edilmiş ama sonucu belirsiz iş otomatik tekrarlanamaz.</li>
+<li><strong>P1 — Protokol kalitesi.</strong> Tur 3 anlaşmazlık varsa kaynak referanslı itirazlara, yoksa ortak görüşü çürütmeye odaklansın. Tur sayısı sabit kalsın.</li>
+<li><strong>P2 — Ölç, sonra genişlet.</strong> Tur başına süre, ham sağlayıcı usage&#x27;ı, görüş değişimi/tekrar ve protokol-uyum ölçümleri 20–30 gerçek oturumda toplansın. Ancak veriler gerekçe oluşturursa quick profil, exec adapter, Ollama/vLLM, ADR veya TUI eklensin.</li>
+</ol>
+<p>Çözülemeyen ayrılık: Antigravity yerel modelleri ve tam <code>resume</code>u yakın vadede istiyor; Codex ve Claude bunları güven/kanıt yetersizliği nedeniyle erteliyor. Para maliyeti, sağlayıcı usage şemaları karşılaştırılabilir olmadığı için kesin toplam diye sunulmamalıdır.</p></div></section></div></div><div id='cog-claude' data-group='page' class='cogitor-layout' hidden><aside class='cogitor-side'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M25.7146 63.2153L41.4393 54.3917L41.7025 53.6226L41.4393 53.1976H40.6705L38.0394 53.0359L29.054 52.7929L21.2624 52.4691L13.7134 52.0644L11.8111 51.6594L10.0303 49.3118L10.2123 48.138L11.8111 47.0657L14.0981 47.2681L19.1574 47.6119L26.7467 48.138L32.2516 48.4618L40.4073 49.3118H41.7025L41.8846 48.7857L41.4393 48.4618L41.0955 48.138L33.243 42.8155L24.7432 37.1894L20.2909 33.9513L17.8824 32.3119L16.6684 30.774L16.1422 27.4147L18.328 25.0062L21.2624 25.2088L22.0112 25.4112L24.9861 27.6979L31.3407 32.616L39.6381 38.7273L40.8525 39.7391L41.3381 39.395L41.399 39.1523L40.8525 38.2415L36.3394 30.0858L31.5227 21.7883L29.3775 18.3478L28.811 16.2837C28.6087 15.4334 28.4669 14.7252 28.4669 13.8549L30.9563 10.4753L32.3321 10.0303L35.6515 10.4756L37.0479 11.6897L39.112 16.4052L42.4513 23.8327L47.6321 33.9313L49.15 36.9265L49.9594 39.6991L50.2632 40.5491H50.7894V40.0632L51.2141 34.3766L52.0035 27.3944L52.7726 18.4087L53.0358 15.8793L54.2905 12.8435L56.7795 11.2041L58.7224 12.135L60.3212 14.422L60.0986 15.899L59.1474 22.0718L57.2857 31.7458L56.0713 38.2218H56.7795L57.5892 37.4121L60.8677 33.061L66.3723 26.18L68.801 23.448L71.6342 20.4325L73.4556 18.9957H76.8962L79.4255 22.7601L78.2926 26.6456L74.7509 31.1384L71.8163 34.943L67.607 40.6097L64.9758 45.1431L65.2188 45.5072L65.8464 45.4466L75.358 43.4228L80.4984 42.4917L86.6304 41.4393L89.4033 42.7346L89.7065 44.0502L88.6135 46.7419L82.0566 48.3607L74.3662 49.8989L62.9118 52.6109L62.77 52.7121L62.9321 52.9144L68.0925 53.4L70.2987 53.5214H75.7021L85.7601 54.2702L88.3912 56.0108L89.9697 58.1358L89.7065 59.7545L85.6589 61.8189L80.1949 60.5236L67.4452 57.4881L63.0735 56.3952H62.4665V56.7596L66.1093 60.3213L72.7877 66.3523L81.1461 74.1236L81.5707 76.0462L80.4984 77.5638L79.3649 77.4021L72.0186 71.8772L69.1854 69.3879L62.77 63.9844H62.3453V64.5509L63.8223 66.7164L71.6342 78.4544L72.0389 82.0567L71.4725 83.2308L69.4487 83.939L67.2222 83.534L62.6485 77.1189L57.9333 69.8937L54.1284 63.4177L53.6631 63.6809L51.4167 87.8651L50.3644 89.0995L47.9356 90.0303L45.9121 88.4924L44.8392 86.0031L45.9118 81.0852L47.2071 74.6701L48.2594 69.5699L49.2106 63.2356L49.7773 61.131L49.7367 60.9892L49.2715 61.0498L44.4954 67.607L37.23 77.4224L31.4825 83.5746L30.1063 84.1211L27.7181 82.8864L27.9408 80.6805L29.2763 78.7177L37.2297 68.5988L42.026 62.3248L45.1227 58.7025L45.1024 58.176H44.9204L23.7917 71.8975L20.0274 72.3831L18.4083 70.8655L18.6106 68.3761L19.3798 67.5664L25.7343 63.195L25.7146 63.2153Z" fill="currentColor"/></svg><span>Claude</span></span><dl class='kv'><dt>Model</dt><dd><code>opus-5.5 · high</code></dd><dt>Süre</dt><dd>130,3 sn</dd><dt>Token</dt><dd>10.734</dd><dt>Girdi · çıktı</dt><dd>8 · 10.726</dd><dt>Durum</dt><dd>4/4 başarılı</dd></dl><nav class='round-nav'><a href='#cog-claude-r1'><span>R1 Bağımsız Analiz</span><span class='sub'>42,6 sn · 3.414 tok</span></a><a href='#cog-claude-r2'><span>R2 Yeniden Değerlendirme</span><span class='sub'>35,0 sn · 2.698 tok</span></a><a href='#cog-claude-r3'><span>R3 Münazara</span><span class='sub'>25,4 sn · 2.331 tok</span></a><a href='#cog-claude-r4'><span>R4 Nihai Pozisyon</span><span class='sub'>27,3 sn · 2.291 tok</span></a></nav></aside><div><section id='cog-claude-r1' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 1</span>Bağımsız Analiz</div><div class='round-meta'><span class='mono sub'>42,6 sn · 3.414 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h1>Claude — Tur 1: Bağımsız Analiz</h1>
+<p><strong>Pozisyon:</strong> Önce güven değişmezlerini düzeltmek, sonra kanıt katmanını eklemek gerekiyor. TUI veya PR botu şimdilik ertelenebilir.</p>
+<h2>Öncelikli 5 öneri</h2>
+<p><strong>1. Değişmez ve dokümantasyon tutarsızlıklarını düzeltmek (en ucuz, en yüksek güven etkisi)</strong></p>
+<ul>
+<li><code>extend_timeout</code> fonksiyonu README&#x27;deki &quot;en fazla 8 harici çağrı&quot; ve &quot;otomatik retry yok&quot; iddialarını fiilen deliyor. Aynı fonksiyonda <code>state[&quot;deadline&quot;] += add_seconds</code> satırı toplam bütçeyi sessizce uzatıyor.</li>
+<li>Önerim: Her retry&#x27;ı sayaçla kaydetmek, üst sınırı açıkça <code>8 + N</code> olarak raporlamak, deadline uzatmasını ayrı bir onay olarak göstermek.</li>
+<li>Diğer kayma örnekleri:</li>
+<li>Test sayısı README&#x27;nin Türkçe bölümünde 47, İngilizce bölümünde 51.</li>
+<li><code>--codex-effort</code> seçenekleri <code>ultra</code> içermiyor, oysa runner bunu kabul ediyor.</li>
+<li><code>get_available_models_catalog</code> içinde sabit ve eskimiş model adları var (örn. <code>&quot;Claude 3.7 Sonnet&quot;</code>). Bu, tarafsızlığı ve doğruluğu zedeliyor. Katalog dinamik keşfe veya &quot;inherit&quot; varsayılanına dönmeli.</li>
+</ul>
+<p><strong>2. Claim ledger ve anlaşmazlık güdümlü Tur 3</strong></p>
+<ul>
+<li>Danışmanlar her iddiayı yapılandırılmış olarak (<code>id</code>, <code>claim</code>, <code>evidence_ref: path+sha256</code>, <code>status</code>) serbest metnin yanında döndürmeli.</li>
+<li>Tur 3 yalnızca açık çelişkilere odaklanmalı.</li>
+<li>Ledger boşsa Tur 3 atlanabilir, ama Tur 4 her durumda korunmalı. Tam erken çıkış ise &quot;konsensüs kanıt değildir&quot; ilkesiyle çelişir.</li>
+<li>Sentez ledger&#x27;dan beslenmeli. Böylece azınlık görüşü kaybolamaz.</li>
+</ul>
+<p><strong>3. Deterministik doğrulama adımı (<code>verify</code>)</strong></p>
+<ul>
+<li>Modeller kod çalıştırmamalı. Bunun yerine başkan, kullanıcı onaylı komutları (test, grep, lint) çalıştırır.</li>
+<li>Komut, çıktı ve hash <code>evidence</code> olarak snapshot&#x27;a eklenir ve sonraki tura girer.</li>
+<li>Bu yaklaşım sıfır bağımlılığı korur ve <code>context_only</code> izolasyonunu bozmaz.</li>
+</ul>
+<p><strong>4. Veri güdümlü adapter sözleşmesi (yerel/açık modeller)</strong></p>
+<ul>
+<li><code>run.py</code> içinde <code>command()</code> ve <code>parse_response()</code> sağlayıcı başına sabit if/else yapısında.</li>
+<li>Önerim: Genel bir <code>exec</code> adapter&#x27;ı. Stdin&#x27;den prompt alır, stdout&#x27;a <code>{response, session_id, usage}</code> JSON&#x27;u yazar. Ollama veya vLLM ince bir sarmalayıcıyla bağlanabilir.</li>
+<li>Tarafsızlık için &quot;aile çeşitliliği&quot; etiketi eklenmeli ve aynı aileden iki üye uyarı üretmeli.</li>
+<li>MCP entegrasyonu ikinci aşamaya kalmalı.</li>
+</ul>
+<p><strong>5. Başkan bağımsızlığı ve maliyet görünürlüğü</strong></p>
+<ul>
+<li>Mevcut gate onur sistemine dayanıyor: <code>dispatch</code> arka planda çalışırken başkan <code>round-N/results.json</code> dosyasını okuyabilir.</li>
+<li>Önerim: Commit-reveal. Dispatch öncesinde host cevabının hash&#x27;i kaydedilir.</li>
+<li>Her turda prompt karakter sayısı raporlanmalı. Kaynaklar (200k&#x27;ya kadar) her tur × 2 danışman için yeniden gönderiliyor. <code>usage</code> toplanmalı ve dispatch öncesi bütçe kapısı olmalı.</li>
+</ul>
+<h2>Ertelenenler</h2>
+<ul>
+<li><strong>TUI:</strong> Sıfır bağımlılıkla çelişiyor.</li>
+<li><strong><code>resume</code>:</strong> <code>state.json</code> ile <code>status</code> zaten durum makinesini sağlıyor. En fazla bir &quot;sonraki adım&quot; ipucu yeterli.</li>
+<li><strong>GitHub PR botu:</strong> Dışa dönük yayın riski taşıyor.</li>
+</ul>
+<h2>Belirsizlikler</h2>
+<ul>
+<li>Structured output&#x27;un üç CLI&#x27;da ne kadar güvenilir olduğu doğrulanmadı.</li>
+<li>Session resume&#x27;un token tasarrufu, taze prompt izolasyonu kaybına karşı tartılmadı.</li>
+<li>Katalogdaki model adlarının hangilerinin gerçekten geçersiz olduğunu kontrol etmedim. Bu bir gözlem değil, varsayım.</li>
+</ul></div></section><section id='cog-claude-r2' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 2</span>Yeniden Değerlendirme</div><div class='round-meta'><span class='mono sub'>35,0 sn · 2.698 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h1>Claude — Tur 2: Yeniden Değerlendirme</h1>
+<h2>Değişenler</h2>
+<ul>
+<li><strong>Codex&#x27;in veri çıkışı görünürlüğü önerisini benimsiyorum.</strong> İlk turda bunu atlamıştım. <code>init</code> banner&#x27;ı dosya sayısını gösteriyor, ancak karakter/bayt hacmini ve bu hacmin hangi sağlayıcıya kaç kez gideceğini göstermiyor. Kanıt en fazla 200k karakter olabiliyor ve her tur 2 danışmana tekrar gönderiliyor. Bu yüzden maliyet kapısıyla birleştirip 3. önceliğe alıyorum.</li>
+<li><strong>Claim ledger ve Tur 3&#x27;ü atlama önerisini geri çekiyorum.</strong> Yapılandırılmış çıktının üç CLI&#x27;da güvenilir çalıştığı doğrulanmadı. Codex&#x27;in &quot;önce telemetri topla&quot; itirazı yerinde.</li>
+<li><strong>Commit-reveal önerisini düşürüyorum.</strong> Host, dosya sistemine erişebildiği sürece <code>results.json</code> dosyasını okumasını hiçbir hash engelleyemez. Bu sınırı dokümante etmek, sahte bir garanti vermekten daha dürüst.</li>
+</ul>
+<h2>Değişmeyenler</h2>
+<ol>
+<li><strong>Değişmez ihlalleri hâlâ birinci öncelik.</strong> Akranlar bu konuya değinmedi. Kaynakta gözlemlediğim ek bir hata var: <code>extend_timeout</code>, <code>cli-retry</code> dizinini <code>exist_ok=True</code> ile açıyor. Oysa <code>execute_jobs</code> boş dizin istiyor, dolayısıyla ikinci bir retry &quot;results directory must be empty&quot; hatasıyla çöker. Buna ek olarak fonksiyon <code>dispatched</code> marker&#x27;ı kullanmıyor, sinyal handler&#x27;ı kurmuyor ve <code>deadline</code> değerini sessizce uzatıyor. Sonuç olarak README&#x27;deki &quot;en fazla 8 çağrı&quot; iddiası yanlış.</li>
+<li><strong>Doğrulama kapısı konusunda üç danışman da uzlaşıyor.</strong> Ayrıntıda Codex&#x27;e katılıyorum: komutlar Tur 1&#x27;den önce, <code>init</code> aşamasında bir kez ve kullanıcı onaylı allowlist ile çalıştırılmalı. Çıktı hash&#x27;lenip snapshot&#x27;a eklenmeli. Antigravity&#x27;nin önerdiği &quot;Tur 2 öncesi&quot; zamanlama, Tur 1&#x27;i kanıtsız bırakır.</li>
+<li><strong>Antigravity&#x27;nin <code>resume</code> motoruna karşıyım.</strong> &quot;Tamamlanmamış işleri yeniden kuyruğa almak&quot;, <code>dispatched</code> marker tasarımıyla çelişiyor: çökme anında token harcanıp harcanmadığı bilinemez. <code>status</code> çıktısına bir <code>next_action</code> alanı eklemek yeterli.</li>
+<li><strong>Yerel model desteği için tercihim değişmedi, ama önceliğini düşürdüm.</strong> Adaptör eklenecekse <code>urllib</code> yerine <code>exec</code> sözleşmesi olmalı. Böylece mevcut process-group sonlandırma, timeout ve <code>MAX_OUTPUT_BYTES</code> korumaları yeniden kullanılır. Codex&#x27;in &quot;4. sağlayıcı talebi gelene kadar dondur&quot; görüşünü kabul ediyorum.</li>
+<li><strong>ADR çıktısı</strong> düşük maliyetli bir iş: <code>finish</code> içinde yeni modül değil, alternatif bir şablon olarak eklenebilir. Sıralamada son.</li>
+</ol>
+<h2>Belirsizlik</h2>
+<p>Codex&#x27;in bildirdiği 52/52 geçen test ve 1.590 satırlık dosya boyutunu doğrulayamadım.</p></div></section><section id='cog-claude-r3' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 3</span>Münazara</div><div class='round-meta'><span class='mono sub'>25,4 sn · 2.331 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h1>Claude — Tur 3: Münazara</h1>
+<h2>Antigravity&#x27;ye itirazlar</h2>
+<ol>
+<li><strong>&quot;<code>previous_rounds</code> yok&quot; iddiası yanlış.</strong> Tur 2&#x27;de Tur 1 görüşleri prompt&#x27;a konuyor (<code>prompt_for</code>: <code>number - 1</code>). Pozisyonunuz akranları işlemediği için kanıtla sınanmamış durumda. Soru: yanıt <code>-p</code> argv ile mi kırpıldı? <code>MAX_ANTIGRAVITY_ARGV_BYTES</code> 250k; payload bunun altında olmalı. Bunu doğrulayabilir misiniz?</li>
+<li><strong><code>resume</code> önerisi hâlâ <code>dispatched</code> marker ile çelişiyor.</strong> workflow.md açık: çökme sonrası token harcanıp harcanmadığı bilinemez. Hangi durumun &quot;güvenle devam&quot; sayılacağını tanımlamadınız.</li>
+<li><strong><code>--verify-cmd</code> keyfi shell çalıştırır.</strong> Bu, güven sınırını büyütür ve <code>context_only</code> izolasyonunun ruhuna aykırıdır. Bu sorunu yanıtlamadınız.</li>
+</ol>
+<h2>Codex&#x27;e yanıt ve düzeltmem</h2>
+<p><code>--evidence-file</code> önerinizi kabul ediyorum. Kendi &quot;init&#x27;te allowlist komut&quot; önerimi geri çekiyorum. Host komutu zaten kendi izinleriyle çalıştırıyor, çıktısı <code>sources</code> gibi hash&#x27;lenip snapshot&#x27;a giriyor. Böylece Cogitors&#x27;a yeni bir yürütme yüzeyi eklenmiyor.</p>
+<h2>P0&#x27;a eklediğim kanıtlar</h2>
+<ul>
+<li><strong><code>ultra</code> uyumsuzluğu doğrulandı.</strong> <code>run.py</code> <code>EFFORTS[&quot;codex&quot;]</code> değeri <code>ultra</code> içeriyor, <code>init --codex-effort</code> choices içermiyor.</li>
+<li><strong>Katalog bayat ve sabit kodlanmış.</strong> <code>&quot;Claude 3.7 Sonnet&quot;</code> ve <code>o3</code> varsayılanı model gerçekliğini yansıtmıyor. Bu, şeffaflık ilkesini zedeliyor. Çözüm: katalog etiketlerini &quot;öneri, doğrulanmamış&quot; diye işaretlemek ya da açıklamaları silmek.</li>
+<li><strong>README kendisiyle çelişiyor.</strong> Türkçe bölüm 47, İngilizce bölüm 51 test diyor. HTML çıktısı yalnızca Türkçe dizin ağacında görünüyor.</li>
+<li><strong><code>extend_timeout</code> açıkları.</strong> <code>cli-retry</code> ikinci çağrıda <code>execute_jobs</code> içinde &quot;must be empty&quot; hatası veriyor. Sinyal handler&#x27;ı yok. <code>deadline</code> sessizce uzuyor.</li>
+</ul>
+<h2>Düzeltilmiş sıralama</h2>
+<ol>
+<li>Sözleşme ile kod eşitliği (yukarıdaki hatalar ve regresyon testleri).</li>
+<li>Veri çıkışı ve maliyet özeti.</li>
+<li><code>--evidence-file</code>.</li>
+<li><code>status.next_action</code>.</li>
+<li>Erken çıkış ve yerel model desteği, telemetri toplanana kadar ertelenmeli.</li>
+</ol>
+<h2>Belirsizlik</h2>
+<p>Codex&#x27;in 52 test iddiasını hâlâ doğrulayamadım.</p></div></section><section id='cog-claude-r4' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 4</span>Nihai Pozisyon</div><div class='round-meta'><span class='mono sub'>27,3 sn · 2.291 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h1>Claude — Tur 4: Nihai Pozisyon</h1>
+<h2>İtirazlara yanıtlar</h2>
+<p><strong>Codex (ADR iki doğruluk kaynağı yaratır): Kabul.</strong> <code>cogitor-final-*.md</code> ve <code>.json</code> zaten dönüştürülebilir. Otomatik ADR üretimini gerçek kullanıcı talebi gelene kadar geri çekiyorum.</p>
+<p><strong>Antigravity (R3&#x27;te &quot;Şeytanın Avukatı&quot; modu): Kısmen kabul.</strong> Konsensüsü tespit eden otomatik bir hakem, hangi modelin karar vereceği sorusunu açar ve yeni bir tarafsızlık riski yaratır. Kabul ettiğim biçim yalnızca prompt değişikliğidir. <code>ROUND_GOALS_*[3]</code> metnine şu cümle eklenir: &quot;Ayrışma yoksa ortak varsayımların en zayıfını çürütmeye çalışın.&quot; Bu değişiklik ek çağrı ya da kod dalı gerektirmez.</p>
+<p><strong>Antigravity (<code>ast</code>/<code>re</code> ile statik doğrulama): Ret.</strong> Mimari veya ürün kararlarında iddiaların çoğu Python AST ile sınanamaz. Genel ve güvenli yol <code>--evidence-file</code>&#x27;dır: host çıktıyı üretir, dosya hash&#x27;lenir ve snapshot&#x27;a girer.</p>
+<p><strong>Antigravity (<code>resume</code>): Ret.</strong> Tur 3&#x27;teki soru hâlâ yanıtsız: <code>dispatched</code> marker varken uzaktaki tüketim nasıl kanıtlanacak? Bu yüzden <code>resume</code> yalnızca <code>status.next_action</code> tanısı üretmeli, otomatik tekrar yapmamalıdır.</p>
+<p><strong>Yerel modeller: Erteleme.</strong> Antigravity&#x27;nin <code>previous_rounds</code> verisini görmediğini söylemesi, yeni bir sağlayıcıdan önce protokol uyum testi gerektiğini gösteriyor.</p>
+<h2>Belirsizliğin çözümü</h2>
+<p>Snapshot&#x27;taki testleri saydım. <code>test_cogitor</code> 29, <code>test_runner</code> 14, <code>test_packaging</code> 9 test içeriyor; toplam <strong>52</strong>. Bu sayı Codex&#x27;i doğruluyor. README&#x27;deki 47 (TR) ve 51 (EN) sayılarının ikisi de bayat.</p>
+<h2>Nihai sıralama</h2>
+<ol>
+<li><strong>P0 — sözleşme ile kodun eşitlenmesi:</strong></li>
+</ol>
+<ul>
+<li><code>ultra</code> seçeneği <code>init</code> choices listesinde yok.</li>
+<li><code>cli-retry</code> ikinci çağrıda &quot;must be empty&quot; hatası veriyor.</li>
+<li><code>extend_timeout</code> sinyal handler&#x27;ı olmadan çalışıyor ve deadline&#x27;ı sessizce uzatıyor. Ayrıca &quot;en fazla 8 çağrı&quot; iddiasını ihlal ediyor.</li>
+<li>Model kataloğu bayat.</li>
+<li>README&#x27;deki test sayıları yanlış.</li>
+</ul>
+<ol>
+<li><strong>P0 — veri çıkışı ve maliyet onayı:</strong> Dış sağlayıcıya gidecek içerik ve tahmini maliyet özetlenip tek onay alınmalı.</li>
+<li><strong>P1:</strong> <code>--evidence-file</code> ve kaynak referanslı itiraz tablosu.</li>
+<li><strong>P1:</strong> <code>status.next_action</code> ve R3 prompt değişikliği.</li>
+<li><strong>Ertelenen:</strong> Erken çıkış ve yerel modeller, telemetri ile uyum testi tamamlanana kadar bekletilmeli.</li>
+</ol>
+<h2>Çözülemeyen ayrılık</h2>
+<p><code>resume</code> ile otomatik yeniden kuyruğa alma konusunda Antigravity ile uzlaşamadık.</p></div></section></div></div><div id='cog-antigravity' data-group='page' class='cogitor-layout' hidden><aside class='cogitor-side'><span class='who'><svg width="15" height="15" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="model-brand-icon" style="vertical-align:-2px;flex:none;"><path d="M85.2843 88.0301C90.1329 91.6664 97.4057 89.2422 90.7389 82.5755C70.7389 63.1816 74.9813 9.84827 50.1329 9.84827C25.2843 9.84827 29.5267 63.1816 9.52673 82.5755C2.25402 89.8483 10.1328 91.6664 14.9813 88.0301C33.7692 75.3028 32.5571 52.8786 50.1329 52.8786C67.7086 52.8786 66.4965 75.3028 85.2843 88.0301Z" fill="currentColor"/></svg><span>Antigravity</span></span><dl class='kv'><dt>Model</dt><dd><code>gemini-3.8-flash · high</code></dd><dt>Süre</dt><dd>76,5 sn</dd><dt>Token</dt><dd>298.810</dd><dt>Girdi · çıktı</dt><dd>280.375 · 18.435</dd><dt>Durum</dt><dd>4/4 başarılı</dd></dl><nav class='round-nav'><a href='#cog-antigravity-r1'><span>R1 Bağımsız Analiz</span><span class='sub'>19,8 sn · 61.204 tok</span></a><a href='#cog-antigravity-r2'><span>R2 Yeniden Değerlendirme</span><span class='sub'>16,2 sn · 71.882 tok</span></a><a href='#cog-antigravity-r3'><span>R3 Münazara</span><span class='sub'>25,7 sn · 79.315 tok</span></a><a href='#cog-antigravity-r4'><span>R4 Nihai Pozisyon</span><span class='sub'>14,8 sn · 86.409 tok</span></a></nav></aside><div><section id='cog-antigravity-r1' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 1</span>Bağımsız Analiz</div><div class='round-meta'><span class='mono sub'>19,8 sn · 61.204 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h3>Pozisyon</h3>
+<p>The Cogitors; bağımsız analiz, çapraz denetim ve sıfır dış bağımlılık prensipleriyle çoklu model müzakeresinde sağlam bir zemin oluşturmuştur (<code>cogitor.py</code>, <code>run.py</code>). Ancak mevcut mimaride karar kalitesi yalnızca modellerin saf metinsel akıl yürütmesine dayanmaktadır. &quot;Görüş birliği doğruluk kanıtı değildir&quot; ilkesinin gereği olarak, metinsel iddiaların ampirik doğrulama mekanizmalarıyla güçlendirilmesi ve sistemin oturum dayanıklılığının artırılması öncelikli gereksinimdir.</p>
+<hr>
+<h3>Öncelikli İyileştirme Önerileri</h3>
+<ol>
+<li><strong>Ampirik Doğrulama Kancası (Verification / Sandbox Hook):</strong></li>
+</ol>
+<ul>
+<li><strong>Teknik Gerekçe:</strong> Modeller mimari kısıtlar veya kod davranışları hakkında yanıltıcı varsayımlarda uzlaşabilir. <code>init</code> aşamasında tanımlanabilecek opsiyonel bir <code>--verify-cmd</code> (örn. <code>pytest</code>, <code>cargo test</code>, linter) ile, Round 2 öncesinde ortak test çıktısı üretilip kanıt snapshot&#x27;ına eklenebilmelidir.</li>
+<li><strong>Risk ve Zorluk:</strong> Çalıştırılan komutların deterministik olmaması veya kaynak tüketimi. Python <code>subprocess</code> ile ek bağımlılık olmadan izole yürütülmelidir.</li>
+</ul>
+<ol>
+<li><strong>Kesinti Kurtarma ve İdempotent <code>resume</code> Desteği:</strong></li>
+</ol>
+<ul>
+<li><strong>Teknik Gerekçe:</strong> Mevcut yapıda <code>extend-timeout</code> ve <code>continue-partial</code> vardır; ancak süreç beklenmedik biçimde kapandığında oturumu kaldığı raunttan güvenle devam ettirecek bir <code>resume</code> akışı eksiktir.</li>
+<li><strong>Risk ve Zorluk:</strong> Çöken süreçlerin arkasında token israfı yapmadan yalnızca tamamlanmamış işleri yeniden kuyruğa almak; <code>round-N/results.json</code> durum doğrulaması gerektirir.</li>
+</ul>
+<ol>
+<li><strong>Yerel Model Desteği (<code>urllib</code> OpenAI-Uyumlu Adaptör):</strong></li>
+</ol>
+<ul>
+<li><strong>Teknik Gerekçe:</strong> <code>run.py</code> yalnızca üç kapalı CLI aracına (<code>codex</code>, <code>claude</code>, <code>agy</code>) kilitlidir. Açık kaynak modellerin (Ollama, vLLM, DeepSeek) eklenmesi platform bağımsızlığını pekiştirir.</li>
+<li><strong>Risk ve Zorluk:</strong> Harici <code>requests</code> paketi yerine Python standart kütüphanesindeki <code>urllib.request</code> kullanılmalıdır. Yerel modellerin sıkı prompt kurallarına ve JSON formatına uyum yetersizliği risktir.</li>
+</ul>
+<ol>
+<li><strong>Standart ADR (Architecture Decision Record) Çıktı Modülü:</strong></li>
+</ol>
+<ul>
+<li><strong>Teknik Gerekçe:</strong> Kararların yazılım projelerinde kalıcılaşması için <code>cogitor-final.md</code> çıktısının yanı sıra endüstri standardı ADR (Context, Decision, Consequences, Compliance) formatında dosya üretilmelidir.</li>
+</ul>
+<hr>
+<h3>Somut Kanıtlar</h3>
+<ul>
+<li><code>run.py:command()</code> fonksiyonu doğrudan <code>codex</code>, <code>claude</code> ve <code>agy</code> argümanlarını kodlamıştır; genişletilebilir adaptör soyutlaması yoktur.</li>
+<li><code>state.json</code> her rauntta hash doğrulaması (<code>brief_hash</code>, <code>request_hash</code>) yaptığı için <code>resume</code> mekanizması mevcut veri modeline sorunsuz entegre edilebilir.</li>
+</ul>
+<hr>
+<h3>Belirsizlikler</h3>
+<ul>
+<li>Modellerin otomatik test/linter çıktılarını doğru yorumlama ve rasyonel pozisyon güncelleme başarımı ampirik olarak test edilmemiştir.</li>
+<li>Açık kaynak yerel modellerin 5 turlu münazara disiplinini (özellikle akran eleştirilerine odaklanma) koruyup koruyamayacağı belirsizdir.</li>
+</ul></div></section><section id='cog-antigravity-r2' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 2</span>Yeniden Değerlendirme</div><div class='round-meta'><span class='mono sub'>16,2 sn · 71.882 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h3>Raunt 2: Pozisyon ve Önceliklerin Yeniden Değerlendirilmesi</h3>
+<p>Sağlanan bağlamda akran görüşü verisi (<code>previous_rounds</code>) yer almadığı için temel metodolojik çerçevem korunmuş; mimari snapshot (<code>cogitor.py</code>, <code>run.py</code>) ışığında öncelikli pozisyonum şu üç somut başlıkta rafine edilmiştir:</p>
+<ol>
+<li><strong>Empirik Doğrulama Kapısı (Verification Gate):</strong></li>
+</ol>
+<p>&quot;Konsensüs doğruluk kanıtı değildir&quot; ilkesini hayata geçirmek için modellerin kod ve mantık iddiaları isteğe bağlı bir yerel komutla (<code>--verify-cmd</code>) test edilebilmelidir. Sıfır bağımlılık felsefesini zedelemeden, Python standart kütüphanesindeki <code>subprocess</code> üzerinden sadece deterministik test/linter çıktıları snapshot kanıtına eklenmeli; modellerin somut veriye dayalı argüman üretmesi zorunlu kılınmalıdır.</p>
+<ol>
+<li><strong>Dinamik Erken Çıkışa (Early Exit) Karşı Duruş:</strong></li>
+</ol>
+<p>Protokolün 4 tur + 1 sentez omurgası erken mutabakat amacıyla kısaltılmamalıdır. Erken çıkış mekanizmaları yüzeysel uyumu ödüllendirir ve ortak kör noktaları görünmez kılar. İyileştirme tur sayısını azaltmakta değil; Raunt 3&#x27;te uygulandığı gibi müzakereyi yalnızca ayrışan teknik ihtilaflara odaklamakta aranmalıdır.</p>
+<ol>
+<li><strong>Checkpointing ve Güvenli Oturum Devamı (<code>resume</code>):</strong></li>
+</ol>
+<p>Mevcut <code>round-N/</code> dizinleme ve deterministik <code>state.json</code> mimarisi zaten izole adımlara dayanmaktadır. Olası CLI kesintilerinde veya harici timeout durumlarında oturumu en baştan başlatmak yerine kaldığı raunttan güvenle devam ettirecek bir <code>resume</code> desteği eklenmelidir. Bu adım token/maliyet israfını engeller.</p>
+<p><strong>Sonuç:</strong> Sıfır dış bağımlılık, CLI izolasyonu ve bağımsız heyet yapısı korunarak; sistem empirik doğrulama ve checkpoint dayanıklılığıyla geliştirilmelidir.</p></div></section><section id='cog-antigravity-r3' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 3</span>Münazara</div><div class='round-meta'><span class='mono sub'>25,7 sn · 79.315 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h3>1. Akran Pozisyonlarına Somut İtirazlar ve Karşı Kanıtlar</h3>
+<ul>
+<li><strong>İtiraz 1 (Erken Çıkış / Early Exit Yanılgısı):</strong></li>
+</ul>
+<p>Modeller ilk turlarda uzlaştığında token/süre tasarrufu gerekçesiyle &quot;erken çıkış&quot; yapılması önerisine kesinlikle karşıyım. Cogitors’un temel ilkesi nettir: <em>“Konsensüs doğruluk kanıtı değildir.”</em> Üç modelin de ortak önyargı veya benzer ön eğitim verisi nedeniyle aynı yanılgıda uzlaşabildiği durumlarda erken çıkış, ortak kör noktayı tesciller.</p>
+<p><em>Karşı Öneri &amp; Soru:</em> Erken çıkış yerine, 2. turda tam mutabakat görülürse 3. tur otomatik olarak <strong>“Şeytanın Avukatı (Adversarial Stress-Test)”</strong> moduna geçirilmeli ve danışmanlara şu soru yöneltilmelidir: <em>“Bu uzlaşının çökeceği en kırılgan uç senaryo veya gizli maliyet nedir?”</em></p>
+<ul>
+<li><strong>İtiraz 2 (Ağır Doğrulama Bağımlılıkları ve Kod Yürütme):</strong></li>
+</ul>
+<p>İddiaları doğrulamak için turlar arasına rastgele kod yürüten sandbox/Docker veya harici paketler eklenmesi; <code>README.md</code>&#x27;deki <strong>&quot;Zero dependencies&quot;</strong> ilkesini ve <code>execution.md</code>&#x27;deki <code>context_only: true</code> (salt okunur güvenlik sınırı) taahhüdünü yıkar.</p>
+<p><em>Karşı Kanıt:</em> Doğrulama, çalışma ortamını riske atmadan; Python standart kütüphanesindeki <code>ast</code> / <code>re</code> modülleriyle statik kurallar ve deterministik snapshot diff incelemesiyle sınırlandırılmalıdır.</p>
+<ul>
+<li><strong>İtiraz 3 (Müzakere İçi Dinamik MCP/Tool Çağrısı):</strong></li>
+</ul>
+<p>Modellere tur içinde serbest araç kullanım yetkisi verilmesi, protokolün en güçlü teminatı olan <strong>8 harici çağrılık maliyet tavanını (bounded cost)</strong> ve eşzamanlı tur izolasyonunu bozar.</p>
+<hr>
+<h3>2. Düzeltilmiş Pozisyonum (Antigravity)</h3>
+<ol>
+<li><strong>Dinamik Stres Testli 5 Tur:</strong> 5 turlu yapı korunmalı; erken uzlaşma halinde R3 otomatik olarak konsensüsü çürütmeye odaklanan stres testine evrilmelidir.</li>
+<li><strong>Sıfır Bağımlılıklı Yerel CLI Genişlemesi:</strong> Ollama ve vLLM desteği harici SDK veya pip paketi olmadan, doğrudan <code>run.py</code> içindeki standart <code>subprocess/stdio</code> CLI adaptörüyle eklenmelidir.</li>
+<li><strong>Kesintisizlik (<code>resume</code>):</strong> Mevcut atomik <code>state.json</code> altyapısı kullanılarak, kopan oturumları son turdan ayağa kaldıran deterministik bir <code>resume</code> komutu eklenmelidir.</li>
+</ol></div></section><section id='cog-antigravity-r4' class='round-card'><div class='round-header'><div class='round-title'><span class='sub'>Tur 4</span>Nihai Pozisyon</div><div class='round-meta'><span class='mono sub'>14,8 sn · 86.409 tok</span><span class='kx-status kx-status-approved'><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;flex:none;"><path d="M20 6 9 17l-5-5"/></svg> success</span></div></div><div class='round-body'><h3>İtirazların Değerlendirilmesi</h3>
+<ol>
+<li><strong>Erken Mutabakat (Early Exit) Önerisi [REDDEDİLDİ]:</strong></li>
+</ol>
+<p>&quot;Görüş birliği doğruluk kanıtı değildir&quot; temel ilkesi gereğince bu öneriyi kesin olarak reddediyorum. Modeller ilk turlarda halüsinasyon veya ortak varsayımlar üzerinde hızla uzlaşabilir. Yüzeysel konsensüsü kırmak ve gizli riskleri yüzeye çıkarmak için 5 turlu sabit diyalektik yapı tavizsiz korunmalıdır.</p>
+<ol>
+<li><strong>Otomatik Kod Yürütme / Sandbox Entegrasyonu [ŞARTLI KABUL]:</strong></li>
+</ol>
+<p>Modellerin doğrudan sistemde rastgele kod yürütmesi güvenlik ve tarafsızlık ilkelerine aykırıdır. Ancak kullanıcının açıkça tanımladığı deterministik bir test/lint komutunun (<code>--verify-cmd</code>) runner tarafından yalıtılmış olarak çalıştırılıp standart çıktı/hata çıktısının ortak kanıt snapshot&#x27;ına eklenmesini kabul ediyorum.</p>
+<ol>
+<li><strong>Ağır UI / Pip Bağımlılıkları [REDDEDİLDİ]:</strong></li>
+</ol>
+<p>Rich/Textual gibi dış bağımlılıklar projenin &quot;zero dependencies&quot; (sıfır harici paket) felsefesini zedeler. Standart kütüphane tabanlı mevcut ANSI banner ve tek dosyalık interaktif HTML raporu geliştirilerek korunmalıdır.</p>
+<hr>
+<h3>Nihai Pozisyon (Öncelikli Yol Haritası)</h3>
+<ol>
+<li><strong>Deterministik Kanıt Kancası (<code>--verify-cmd</code>):</strong> Standart <code>subprocess</code> ile çalışan, harici kütüphane gerektirmeyen ve model iddialarını yerel testlerle doğrulayan opsiyonel doğrulama kancası.</li>
+<li><strong>Kesinti Kurtarma (<code>cogitor resume</code>):</strong> Mevcut <code>round-N/dispatched</code> ve state hash mimarisi kullanılarak, kesilen oturumların kaldığı turdan token israfı olmadan devam ettirilmesi.</li>
+<li><strong>Standart CLI Uç Noktası Adaptörü:</strong> Yerel modeller (Ollama/vLLM) için HTTP/pip kütüphaneleri eklemek yerine, yerel CLI sarmalayıcıları üzerinden çalışan hafif adaptör katmanı.</li>
+</ol>
+<hr>
+<h3>Çözülemeyen Ayrılık</h3>
+<p>Dinamik tur sayısı ve erken sonlandırma (early exit) taraftarları ile kör noktaların bertaraf edilmesi için 5 turun tamamlanmasını zorunlu gören pozisyonumuz arasındaki ilkesel ayrılık sürmektedir.</p></div></section></div></div>
+  </div>
+  </main>
+
+  <script>
+    function show(group, id, btn) {
+      document.querySelectorAll('[data-group="' + group + '"]').forEach(el => el.hidden = el.id !== id);
+      document.querySelector('.scroll').scrollTop = 0;
+      btn.parentElement.querySelectorAll('button').forEach(b =>
+        b.classList.toggle(b.classList.contains('tab-link') ? 'active' : 'on', b === btn));
+    }
+
+  </script>
+</body>
+</html>

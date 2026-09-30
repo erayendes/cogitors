@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">The Cogitors app icon</title>
+  <desc id="desc">Three evenly stepped burgundy chevrons approach a warm near-white decision square on a dark rounded tile.</desc>
+  <path fill="#2B1724" d="M256 80H768A176 176 0 0 1 944 256V768A176 176 0 0 1 768 944H256A176 176 0 0 1 80 768V256A176 176 0 0 1 256 80Z"/>
+  <path fill="#704159" d="M160 304 368 512 160 720 232 792 512 512 232 232Z"/>
+  <path fill="#AA506D" d="M232 304 440 512 232 720 304 792 584 512 304 232Z"/>
+  <path fill="#E17B92" d="M304 304 512 512 304 720 376 792 656 512 376 232Z"/>
+  <rect x="720" y="440" width="144" height="144" fill="#FBEFF2"/>
+</svg>

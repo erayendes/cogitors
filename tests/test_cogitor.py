@@ -616,10 +616,12 @@ print(json.dumps(data))
             self.assertEqual(set(self.engine.effort_choices(agent)), self.engine.runner.EFFORTS[agent])
 
     def test_readme_test_counts_match_reality(self):
-        readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parent.parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        readme_tr = (root / "docs" / "README.tr.md").read_text(encoding="utf-8")
         total = sum(1 for f in Path(__file__).parent.glob("test_*.py")
                     for line in f.read_text(encoding="utf-8").splitlines() if line.startswith("    def test_"))
-        self.assertIn("%d testlik" % total, readme)
+        self.assertIn("%d testlik" % total, readme_tr)
         self.assertIn("The %d-test suite" % total, readme)
 
 

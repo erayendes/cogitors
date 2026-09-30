@@ -6,6 +6,4 @@ __pycache__/
 .env.*
 dist/
 .cogitor/
-docs/cogitors-decisions/
 *.log
-designs/

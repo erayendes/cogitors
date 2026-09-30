@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">The Cogitors Decision Void flat mark</title>
+  <desc id="desc">Three evenly stepped burgundy chevrons and a solid warm near-white decision square.</desc>
+  <path fill="#704159" d="M40 76 92 128 40 180 58 198 128 128 58 58Z"/>
+  <path fill="#AA506D" d="M58 76 110 128 58 180 76 198 146 128 76 58Z"/>
+  <path fill="#E17B92" d="M76 76 128 128 76 180 94 198 164 128 94 58Z"/>
+  <rect x="180" y="110" width="36" height="36" fill="#FBEFF2"/>
+</svg>
