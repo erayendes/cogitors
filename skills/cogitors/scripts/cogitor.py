@@ -2154,26 +2154,14 @@ def format_banner(state_or_dir, format="box", directory=None):
         source_desc_parts.extend([s.get("path") for s in git_sources])
     source_summary = ", ".join(source_desc_parts) if source_desc_parts else ("Yok" if is_tr else "None")
 
-    stage_names_tr = {
-        1: "Raunt 1 — Bağımsız Analiz",
-        2: "Raunt 2 — Çapraz İnceleme",
-        3: "Raunt 3 — Odaklı Münazara",
-        4: "Raunt 4 — Son Düzeltmeler",
-        5: "Raunt 5 — Sentez & Karar"
-    }
-    stage_names_en = {
-        1: "Round 1 — Independent Analysis",
-        2: "Round 2 — Reconsideration",
-        3: "Round 3 — Focused Debate",
-        4: "Round 4 — Final Corrections",
-        5: "Round 5 — Synthesis & Decision"
-    }
-    stage_name = (stage_names_tr if is_tr else stage_names_en).get(round_num, f"Round {round_num}")
+    round_names = ROUND_NAMES["en"] + ["Synthesis"]
+    stage_name = f"Round {round_num}"
+    if 1 <= round_num <= len(round_names):
+        stage_name += f" — {round_names[round_num - 1]}"
     if status_str in ("complete", "partial"):
         stage_name += " [Tamamlandı]" if is_tr else " [Completed]"
 
-    protocol_desc = "4 Rauntlu Deliberasyon (Bağımsız ➔ Çapraz ➔ Münazara ➔ Sentez)" if is_tr else \
-                    "4-Round Deliberation (Independent ➔ Cross ➔ Debate ➔ Synthesis)"
+    protocol_desc = "5 Round (4 müzakere + Synthesis)" if is_tr else "5 Rounds (4 deliberation + Synthesis)"
 
     if format == "markdown":
         md = []
