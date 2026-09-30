@@ -1,19 +1,17 @@
-# The Cogitors
-
-> "The eyes of common perception do not see far. Too often we make the most important decisions based only on superficial information."
->
-> — Cogitor Kwyna
-
-<p align="center">
+<p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
     <img alt="The Cogitors" src="assets/logo.svg" width="420">
   </picture>
 </p>
 
-<p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+> "The eyes of common perception do not see far. Too often we make the most important decisions based only on superficial information."
+>
+> — Cogitor Kwyna
+
+<p>
   <a href="https://milowda.com"><img alt="Yerli üretim" src="https://img.shields.io/badge/YERL%C4%B0%20%C3%9CRET%C4%B0M-red?style=flat&label=%F0%9F%A4%9D&color=red&link=https%3A%2F%2Fmilowda.com"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
   <a href="https://github.com/erayendes/cogitors/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/erayendes/cogitors/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://www.npmjs.com/package/cogitors"><img alt="npm" src="https://img.shields.io/npm/v/cogitors.svg"></a>
   <img alt="Python: 3.9+" src="https://img.shields.io/badge/python-3.9+-blue.svg">
