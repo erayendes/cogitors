@@ -6,8 +6,12 @@
 >
 > — Cogitor Kwyna
 
-Codex, Claude ve Antigravity aynı görevi bağımsız inceler, birbirine meydan okur ve tek bir gerekçeli karar üretir.  
-*Codex, Claude and Antigravity independently examine the same task, challenge each other across five rounds, and synthesize one supported decision.*
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="The Cogitors" src="assets/logo.svg" width="420">
+  </picture>
+</p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
@@ -51,50 +55,47 @@ Bunlar yeni terminal komutları değil, **Agent Skills** standartlı skill çağ
 
 ```text
                ┌───────────────────────┐
-               │        Request        │
+               │   /cogitors <task>    │
                └───────────┬───────────┘
-                           │
-       ┌───────────────────┼───────────────────┐
-       ▼                   ▼                   ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Round 1:     │    │ Round 1:     │    │ Round 1:     │
-│ Codex        │    │ Claude       │    │ Antigravity  │
-│ (Bağımsız)   │    │ (Bağımsız)   │    │ (Bağımsız)   │
-└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
-       │                   │                   │
-       └───────────────────┼───────────────────┘
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Bağımsız çıktıların sunulması                        │
-└──────────────────────────┬───────────────────────────┘
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Round 2: Yeniden Değerlendirme                       │
-│ Codex               Claude              Antigravity  │
-│ (Bağımsız)          (Bağımsız)          (Bağımsız)   │
-└──────────────────────────┬───────────────────────────┘
+Round 1: Initial Analysis  ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
                            ▼
                ┌───────────────────────┐
-               │ Round 3: Münazara &   │
-               │ İtirazlar             │
+               │    Drafts Unsealed    │
                └───────────┬───────────┘
-                           ▼
-               ┌───────────────────────┐
-               │ Round 4: Nihai        │
-               │ Pozisyonlar           │
-               └───────────┬───────────┘
-                           ▼
-               ┌───────────────────────┐
-               │ Round 5: Elder        │
-               │ Sentezi (Tek Karar)   │
-               └───────────────────────┘
+Round 2: Reconsideration   ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
+Round 3: Debate            ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │─x─│ Antigravity │─x─│   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
+Round 4: Final Position    ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┐
+Round 5: Synthesis         ▼
+────────────────────┬──────────────┐
+                    │    Elder     │
+                    └──────────────┘
 ```
 
-1. **Bağımsız Analiz:** Üç ajan da aynı görev ve kaynak dosyalar üzerinde analizini yapar. Bu turda hiçbiri diğerinin çalışmasını görmez.
-2. **Yeniden Değerlendirme:** Ajanlar ilk turdaki akran görüşlerini okur. Kendi ön analizlerini akranların görüşlerine göre revize eder ya da etmez.
-3. **Münazara (Meydan Okuma):** Her bir ajan kendi görüşünü somut kanıtlarla savunur. Varsa diğer görüşlere itiraz eder.
-4. **Nihai Pozisyon:** İtirazlara cevap verilir ve son duruş belirlenir.
-5. **Sentez:** Elder ajan tüm turları ve son düzeltmeleri birleştirerek; uzlaşmaları, ayrışan azınlık görüşlerini ve belirsizlikleri tek bir çıktıda toplar.
+1. **Initial Analysis:** Üç ajan da aynı görev ve kaynak dosyalar üzerinde analizini yapar. Bu turda hiçbiri diğerinin çalışmasını görmez.
+2. **Reconsideration:** Ajanlar ilk turdaki akran görüşlerini okur. Kendi ön analizlerini akranların görüşlerine göre revize eder ya da etmez.
+3. **Debate:** Her bir ajan kendi görüşünü somut kanıtlarla savunur. Varsa diğer görüşlere itiraz eder.
+4. **Final Position:** İtirazlara cevap verilir ve son duruş belirlenir.
+5. **Synthesis:** Elder ajan tüm turları ve son düzeltmeleri birleştirerek; uzlaşmaları, ayrışan azınlık görüşlerini ve belirsizlikleri tek bir çıktıda toplar.
 
 ---
 
@@ -260,48 +261,45 @@ These are not new terminal commands but skill invocations following the **Agent 
 
 ```text
                ┌───────────────────────┐
-               │        Request        │
+               │   /cogitors <task>    │
                └───────────┬───────────┘
-                           │
-       ┌───────────────────┼───────────────────┐
-       ▼                   ▼                   ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Round 1:     │    │ Round 1:     │    │ Round 1:     │
-│ Codex        │    │ Claude       │    │ Antigravity  │
-│ (Independent)│    │ (Independent)│    │ (Independent)│
-└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
-       │                   │                   │
-       └───────────────────┼───────────────────┘
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Independent outputs are shared                       │
-└──────────────────────────┬───────────────────────────┘
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│ Round 2: Reconsideration                             │
-│ Codex               Claude              Antigravity  │
-│ (Independent)       (Independent)       (Independent)│
-└──────────────────────────┬───────────────────────────┘
+Round 1: Initial Analysis  ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
                            ▼
                ┌───────────────────────┐
-               │ Round 3: Debate &     │
-               │ Objections            │
+               │    Drafts Unsealed    │
                └───────────┬───────────┘
-                           ▼
-               ┌───────────────────────┐
-               │ Round 4: Final        │
-               │ Positions             │
-               └───────────┬───────────┘
-                           ▼
-               ┌───────────────────────┐
-               │ Round 5: Elder        │
-               │ Synthesis (Decision)  │
-               └───────────────────────┘
+Round 2: Reconsideration   ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
+Round 3: Debate            ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │─x─│ Antigravity │─x─│   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┬────────────────────────────
+Round 4: Final Position    ▼
+────────────────────────────────────────────────────────
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │    Codex    │   │ Antigravity │   │   Claude    │
+  └─────────────┘   └─────────────┘   └─────────────┘
+───────────────────────────┐
+Round 5: Synthesis         ▼
+────────────────────┬──────────────┐
+                    │    Elder     │
+                    └──────────────┘
 ```
 
-1. **Independent Analysis:** All three agents analyze the same task and source files. In this round none of them sees the others' work.
+1. **Initial Analysis:** All three agents analyze the same task and source files. In this round none of them sees the others' work.
 2. **Reconsideration:** Agents read their peers' first-round views and revise their own initial analysis in light of them, or keep it.
-3. **Debate (Challenge):** Each agent defends its view with concrete evidence and objects to other views where it disagrees.
+3. **Debate:** Each agent defends its view with concrete evidence and objects to other views where it disagrees.
 4. **Final Position:** Objections are answered and each agent sets its final stance.
 5. **Synthesis:** The Elder combines all rounds and final corrections into one output with the agreements, the dissenting minority views and the uncertainties.
 
