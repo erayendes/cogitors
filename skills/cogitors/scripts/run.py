@@ -23,6 +23,7 @@ EFFORTS = {
     "antigravity": {"low", "medium", "high", "max"},
 }
 MAX_OUTPUT_BYTES = 5_000_000
+MAX_ANTIGRAVITY_ARGV_BYTES = 250_000
 
 
 
@@ -79,8 +80,8 @@ def validate_jobs(jobs):
             if not isinstance(effort, str) or effort not in EFFORTS[agent]:
                 raise ValueError("job %s effort is unsupported for %s" % (index, agent))
             normalized["effort"] = effort
-        if agent == "antigravity" and len(prompt.encode("utf-8")) > 100_000:
-            raise ValueError("job %s antigravity prompt exceeds safe argv limit (100,000 bytes)" % index)
+        if agent == "antigravity" and len(prompt.encode("utf-8")) > MAX_ANTIGRAVITY_ARGV_BYTES:
+            raise ValueError("job %s antigravity prompt exceeds safe argv limit (%s bytes)" % (index, MAX_ANTIGRAVITY_ARGV_BYTES))
         validated.append(normalized)
         seen.add(agent)
     return validated
@@ -105,6 +106,52 @@ def probe_antigravity():
             probe.write(b"readiness check")
 
 
+def diagnose_agent(agent, cwd=None):
+    """Inspect participant installation, CLI version, and auth without making model calls."""
+    executable = "agy" if agent == "antigravity" else agent
+    cli_path = shutil.which(executable)
+    if not cli_path:
+        return dict(agent=agent, installed=False, authenticated=False, version=None,
+                    error="CLI is not installed or not on PATH", status="missing")
+    version = None
+    try:
+        proc = subprocess.run([executable, "--version"], stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=3)
+        if proc.returncode == 0:
+            version = proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else None
+    except Exception:
+        pass
+
+    if agent == "antigravity":
+        try:
+            probe_antigravity()
+            return dict(agent=agent, installed=True, authenticated=True, version=version,
+                        error=None, status="ok")
+        except Exception as exc:
+            return dict(agent=agent, installed=True, authenticated=False, version=version,
+                        error=str(exc)[:200], status="error")
+    else:
+        args = ["claude", "auth", "status"] if agent == "claude" else ["codex", "login", "status"]
+        try:
+            result = subprocess.run(args, cwd=cwd, stdin=subprocess.DEVNULL,
+                                    capture_output=True, text=True, timeout=10)
+            if agent == "claude":
+                data = json.loads(result.stdout, object_pairs_hook=unique_object)
+                logged_in = isinstance(data, dict) and data.get("loggedIn") is True
+            else:
+                logged_in = result.returncode == 0
+            if logged_in:
+                return dict(agent=agent, installed=True, authenticated=True, version=version,
+                            error=None, status="ok")
+            else:
+                return dict(agent=agent, installed=True, authenticated=False, version=version,
+                            error="Authentication not visible in this execution context",
+                            status="unauthenticated")
+        except Exception as exc:
+            return dict(agent=agent, installed=True, authenticated=False, version=version,
+                        error=str(exc)[:200], status="error")
+
+
 def preflight(jobs):
     """Check all participants in this execution context before any paid call."""
     jobs = validate_jobs(jobs)
@@ -120,8 +167,8 @@ def preflight(jobs):
                 probe_antigravity()
             else:
                 args = ["claude", "auth", "status"] if agent == "claude" else ["codex", "login", "status"]
-                result = subprocess.run(args, cwd=job["cwd"], capture_output=True,
-                                        text=True, timeout=10)
+                result = subprocess.run(args, cwd=job["cwd"], stdin=subprocess.DEVNULL,
+                                        capture_output=True, text=True, timeout=10)
                 if agent == "claude":
                     data = json.loads(result.stdout, object_pairs_hook=unique_object)
                     logged_in = isinstance(data, dict) and data.get("loggedIn") is True
@@ -226,17 +273,26 @@ def stop_group(process):
     # Each launcher owns a new POSIX session; never signal another job's group.
     try:
         os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    except (ProcessLookupError, PermissionError):
+        try:
+            process.terminate()
+        except (ProcessLookupError, PermissionError):
+            pass
     try:
         process.wait(timeout=0.3)
     except subprocess.TimeoutExpired:
         pass
     try:
         os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
+        try:
+            process.kill()
+        except (ProcessLookupError, PermissionError):
+            pass
+    try:
+        process.wait()
+    except (ProcessLookupError, PermissionError):
         pass
-    process.wait()
 
 
 def private_directory(directory):
@@ -261,11 +317,13 @@ def run_job(job, directory, cancelled):
     if job.get("context_only"):
         temp_cwd = tempfile.mkdtemp(prefix="cogitor-iso-")
         target_cwd = temp_cwd
+    start_time = time.monotonic()
     result = dict(agent=agent, status="failed", session_id=None, response=None, usage=None,
                   model=job.get("model"), effort=job.get("effort"), request_hash=fingerprint(job),
                   exit_code=None, stdout_path=str(directory / (agent + ".stdout.log")),
                   stderr_path=str(directory / (agent + ".stderr.log")),
-                  result_path=str(directory / (agent + ".result.json")))
+                  result_path=str(directory / (agent + ".result.json")),
+                  duration_seconds=None)
     try:
         with private_file(result["stdout_path"]) as out, private_file(result["stderr_path"]) as err:
             if cancelled.is_set():
@@ -308,6 +366,7 @@ def run_job(job, directory, cancelled):
         if temp_cwd is not None:
             shutil.rmtree(temp_cwd, ignore_errors=True)
     result["exit_code"] = process.returncode if process is not None else None
+    result["duration_seconds"] = round(time.monotonic() - start_time, 2)
     with private_file(result["result_path"]) as output:
         output.write((json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     return result
