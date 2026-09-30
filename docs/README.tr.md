@@ -128,6 +128,14 @@ Her oturum, projenizin `docs/cogitors-decisions/` dizini altında saklanır:
 
 ## Kurulum ve Tanı
 
+### Hızlı Kurulum
+
+```sh
+npx skills add erayendes/cogitors
+```
+
+Dört skill'in hepsini kurun; `/codex`, `/claude` ve `/antigravity` `cogitors` motorunu kullanır.
+
 ### Model Keşfi ve İnteraktif Seçim ([Heimdall](https://github.com/erayendes/app-store-connect-mcp) Tarzı)
 Artık karmaşık JSON yapılarıyla uğraşmak zorunda değilsiniz:
 

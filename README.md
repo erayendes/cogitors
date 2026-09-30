@@ -128,6 +128,14 @@ Every session is saved under your project's `docs/cogitors-decisions/` directory
 
 ## Installation and Diagnostics
 
+### Quick Install
+
+```sh
+npx skills add erayendes/cogitors
+```
+
+Install all four skills; `/codex`, `/claude` and `/antigravity` use the `cogitors` engine.
+
 ### Model Discovery and Interactive Selection ([Heimdall](https://github.com/erayendes/app-store-connect-mcp) Style)
 No more wrestling with complex JSON:
 
