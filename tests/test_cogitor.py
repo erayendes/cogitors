@@ -143,6 +143,22 @@ class CogitorCheck(unittest.TestCase):
         self.assertTrue((self.run_dir / "round-1" / "jobs.json").is_file())
         self.assertTrue((self.run_dir / "brief.md").is_file())
 
+    def test_export_json_publishes_structured_decision_only_on_request(self):
+        with self.assertRaisesRegex(ValueError, "export_json"):
+            self.engine.init_run(self.brief, "codex", self.root, run_dir=self.root / "private-json-run",
+                                 private=True, export_json=True)
+        self.run_dir = self.engine.init_run(
+            self.brief, "codex", self.root, sources=[self.source], run_dir=self.root / "json-run",
+            output_dir=self.root / "json-decisions", export_json=True)
+        output = Path(self.engine.status(self.run_dir)["output_dir"])
+        for _ in range(4):
+            self.one_round()
+        answer = dict(answer="Use 10.", agreement="All agree.", dissent="None.", uncertainties="Not benchmarked.")
+        final = self.root / "decision.json"
+        final.write_text(json.dumps(answer))
+        self.engine.finish(self.run_dir, final)
+        self.assertEqual(json.loads((output / f"decision-{self.slug}.json").read_text()), answer)
+
     def test_export_failure_is_visible_and_keeps_completed_round_without_retry(self):
         self.run_dir = self.engine.init_run(
             self.brief, "codex", self.root, run_dir=self.root / "failed-delivery-run",
@@ -633,6 +649,10 @@ print(json.dumps(data))
         self.assertEqual(scope["max_calls_with_retries"], 8 * (1 + self.engine.MAX_EXTENSIONS))
         self.assertEqual(scope["peer_answers_sent_in_rounds"], [2, 3, 4])
         self.assertGreater(scope["bytes"], 0)
+        self.assertEqual(scope["sources"], [dict(path=str(self.source.resolve()),
+                                                 bytes=len(self.source.read_bytes()),
+                                                 sha256=self.engine.digest(self.source.read_text()),
+                                                 kind="source")])
         with self.assertRaisesRegex(ValueError, "scope not approved"):
             self.engine.dispatch_round(run_dir)
         self.assertFalse((run_dir / "round-1" / "dispatched").exists())
