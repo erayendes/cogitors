@@ -227,7 +227,7 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
              codex_model=None, codex_effort=None,
              claude_model=None, claude_effort=None,
              antigravity_model=None, antigravity_effort=None,
-             use_defaults=False, chair_model=None):
+             use_defaults=False, chair_model=None, export_json=False):
     if chair not in AGENTS:
         raise ValueError("chair must be codex, claude or antigravity")
     if agents is None:
@@ -280,6 +280,8 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
         raise ValueError("total timeout must be a finite positive number")
     if private and output_dir is not None:
         raise ValueError("private output cannot be combined with output_dir")
+    if private and export_json:
+        raise ValueError("private output cannot be combined with export_json")
     snapshots = []
     for path in sources:
         path = Path(path).resolve()
@@ -323,7 +325,7 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
                  brief_hash=digest(brief), sources=snapshots, participants=selected_agents,
                  active=list(selected_agents), failures={}, round=1, rounds={}, status="active",
                  output_dir=None, slug=session_slug, language=language, metrics=metrics,
-                 chair_model=chair_model)
+                 chair_model=chair_model, export_json=bool(export_json))
     if output_dir is None and not private:
         output_dir = cwd / "docs" / "cogitors-decisions"
     if output_dir is not None:
@@ -342,6 +344,10 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
         providers=advisors, files=len(snapshots),
         evidence_files=sum(1 for item in snapshots if item.get("kind") == "evidence"),
         chars=sum(len(t) for t in shared), bytes=sum(len(t.encode("utf-8")) for t in shared),
+        # Paths and hashes only, so the user sees what is sent before approving; never the text.
+        sources=[dict(path=item["path"], bytes=len(item["text"].encode("utf-8")), sha256=item["sha256"],
+                      kind=item.get("kind") or ("git" if item["path"].startswith("git:") else "source"))
+                 for item in snapshots],
         rounds=[1, 2, 3, 4], peer_answers_sent_in_rounds=[2, 3, 4],
         max_calls=len(advisors) * 4,
         max_calls_with_retries=len(advisors) * 4 * (1 + MAX_EXTENSIONS))
@@ -1904,10 +1910,14 @@ def finish(run_dir, answer_path):
 
     write_text_atomic(directory / final_md, "\n\n".join(parts) + "\n")
     write_json(directory / "decision.json", answer)
+    exported = [final_md, final_html]
+    if state.get("export_json"):
+        write_json(directory / f"decision-{slug}.json", answer)
+        exported.append(f"decision-{slug}.json")
     html_content = render_html(directory, state, answer, slug)
     write_text_atomic(directory / final_html, html_content)
     write_json(directory / "state.json", state)
-    export_outputs(directory, state, [brief_file] + [f"{agent}-{slug}.md" for agent in participants] + [final_md, final_html])
+    export_outputs(directory, state, [brief_file] + [f"{agent}-{slug}.md" for agent in participants] + exported)
     return status(directory)
 
 
@@ -2439,6 +2449,8 @@ def main():
                           help="export decisions into a unique subfolder here")
     delivery.add_argument("--private", action="store_true",
                           help="keep all artifacts in the private run directory")
+    init.add_argument("--export-json", action="store_true",
+                      help="also export the structured decision as decision-<slug>.json")
     init.add_argument("--timeout", type=float, default=180)
     init.add_argument("--total-timeout", type=float, default=1800)
     init.add_argument("--slug", help="custom slug for output directory")
@@ -2550,7 +2562,7 @@ def main():
                                  total_timeout=args.total_timeout, output_dir=args.output_dir,
                                  private=args.private, slug=args.slug,
                                  agents=args.agents, git_diff=args.git_diff, git_staged=args.git_staged,
-                                 chair_model=args.chair_model)
+                                 chair_model=args.chair_model, export_json=args.export_json)
             result = status(directory)
             if args.banner:
                 print(result["banner"])
