@@ -135,7 +135,7 @@ class CogitorCheck(unittest.TestCase):
         final.write_text(json.dumps(dict(answer="Use 10.", agreement="All agree.",
                                          dissent="None.", uncertainties="Not benchmarked.")))
         result = self.engine.finish(self.run_dir, final)
-        final_files = {f"decision-{self.slug}.md", f"decisions-{self.slug}.html"}
+        final_files = {f"decision-{self.slug}.md", f"decisions-{self.slug}.html", f"metrics-{self.slug}.json"}
         self.assertEqual({path.name for path in output.iterdir()},
                           advisor_files | final_files)
         self.assertEqual(Path(result["final"]), output / f"decision-{self.slug}.md")
@@ -188,6 +188,45 @@ class CogitorCheck(unittest.TestCase):
         self.assertFalse([w for w in warnings if w["agent"] == "codex"])
         self.assertIn("Protocol warnings", (self.run_dir / "synthesis.md").read_text())
         self.assertEqual(len(self.calls), 4)
+
+    def test_finish_marks_whether_each_evidence_quote_is_in_the_snapshot(self):
+        for _ in range(4):
+            self.one_round()
+        final = self.root / "decision.json"
+        final.write_text(json.dumps(dict(
+            answer="Use 10.", agreement="All agree.", dissent="None.", uncertainties="Not benchmarked.",
+            evidence=[dict(source="proposal.md", quote="limit   is 10", claim="Ten is the limit."),
+                      dict(source="proposal.md", quote="limit is 1000"),
+                      dict(source="missing.md", quote="limit is 10")])))
+        self.engine.finish(self.run_dir, final)
+        saved = json.loads((self.run_dir / "decision.json").read_text())
+        self.assertEqual([e["matched"] for e in saved["evidence"]], [True, False, False])
+        report = (self.run_dir / f"decision-{self.slug}.md").read_text()
+        self.assertIn('Quote matched in `proposal.md`: "limit   is 10" — Ten is the limit.', report)
+        self.assertIn("Quote NOT found in `missing.md`", report)
+        final.write_text(json.dumps(dict(answer="a", agreement="b", dissent="c", uncertainties="d",
+                                         evidence=[dict(source="proposal.md")])))
+        with self.assertRaisesRegex(ValueError, "verbatim quote"):
+            self.engine.validate_synthesis(json.loads(final.read_text()), self.engine.AGENTS)
+
+    def test_metrics_summary_aggregates_local_sessions_and_keeps_unknown_usage(self):
+        decisions = self.root / "metric-decisions"
+        for number in (1, 2):
+            folder = decisions / ("2026-run-%s" % number)
+            folder.mkdir(parents=True)
+            usage = {"input_tokens": 100, "output_tokens": 50} if number == 1 else None
+            (folder / "metrics-run.json").write_text(json.dumps(dict(
+                status="complete", calls_spent=8, total_duration_seconds=100 * number,
+                rounds={"1": {"jobs": {"claude": dict(duration_seconds=10 * number, usage=usage),
+                                       "codex": dict(duration_seconds=5, usage=None)}}})))
+        summary = self.engine.metrics_summary(decisions)
+        self.assertEqual(summary["sessions"], 2)
+        self.assertEqual(summary["calls_spent"], 16)
+        self.assertEqual(summary["avg_total_seconds"], 150)
+        self.assertEqual(summary["avg_round_seconds"], {"1": 15})
+        self.assertEqual(summary["agents"]["claude"], dict(avg_call_seconds=15, tokens=150, calls_without_usage=1))
+        self.assertEqual(summary["agents"]["codex"]["tokens"], "unknown")
+        self.assertEqual(self.engine.metrics_summary(self.root / "nowhere")["sessions"], 0)
 
     def test_export_failure_is_visible_and_keeps_completed_round_without_retry(self):
         self.run_dir = self.engine.init_run(
