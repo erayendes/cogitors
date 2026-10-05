@@ -24,7 +24,7 @@ The whole flow is tested in a local simulated environment without calling any mo
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-The 62-test suite verifies the five-round data flow, Elder independence gates, slug generation, process cancellation, doctor diagnostics, the two-member council, the HTML decision viewer and packaging. Run it before opening a pull request.
+The 64-test suite verifies the five-round data flow, Elder independence gates, slug generation, process cancellation, doctor diagnostics, the two-member council, the HTML decision viewer and packaging. Run it before opening a pull request.
 
 I review PRs and issues as time allows. There's no fixed response time, but;
 
@@ -55,7 +55,7 @@ Tüm akış, model çağrısı yapmadan yerel simüle ortamda test edilir:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-62 testlik süit; beş tur veri akışını, Elder bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular. Pull request açmadan önce çalıştırın.
+64 testlik süit; beş tur veri akışını, Elder bağımsızlık kapılarını, slug üretimini, süreç iptallerini, doktor tanısını, ikili meclisi, HTML karar görselleştiricisini ve paketlemeyi doğrular. Pull request açmadan önce çalıştırın.
 
 PR ve issue'ları zaman buldukça inceliyorum. Net bir yanıt süresi yok ama;
 

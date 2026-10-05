@@ -159,6 +159,36 @@ class CogitorCheck(unittest.TestCase):
         self.engine.finish(self.run_dir, final)
         self.assertEqual(json.loads((output / f"decision-{self.slug}.json").read_text()), answer)
 
+    def test_call_budget_blocks_dispatch_and_retry_before_any_model_call(self):
+        with self.assertRaisesRegex(ValueError, "max_calls"):
+            self.engine.init_run(self.brief, "codex", self.root, run_dir=self.root / "bad-budget", max_calls=0)
+        self.run_dir = self.engine.init_run(self.brief, "codex", self.root, sources=[self.source],
+                                            run_dir=self.root / "budget-run", max_calls=3)
+        self.assertEqual(self.engine.status(self.run_dir)["scope"]["call_budget"], 3)
+        self.fail_at = (1, "antigravity")
+        self.one_round()
+        self.assertEqual(self.engine.status(self.run_dir)["calls_spent"], 2)
+        self.fail_at = None
+        with patch.object(self.engine.runner, "execute_jobs", side_effect=self.execute):
+            self.engine.extend_timeout(self.run_dir)  # one retry fits: 3 of 3
+            self.assertEqual(self.engine.status(self.run_dir)["calls_spent"], 3)
+            self.engine.record_host(self.run_dir, self.host)
+            with self.assertRaisesRegex(ValueError, "call budget exhausted"):
+                self.engine.dispatch_round(self.run_dir)
+        self.assertEqual(len(self.calls), 2)
+        self.assertFalse((self.run_dir / "round-2" / "dispatched").exists())
+
+    def test_protocol_warnings_reach_the_chair_without_extra_calls(self):
+        self.host.write_text("Stance: limit 10.\n\nproposal.md says limit is 10.")
+        for _ in range(4):
+            self.one_round()
+        warnings = self.engine.status(self.run_dir)["protocol_warnings"]
+        self.assertIn(dict(round=1, agent="claude", issue="missing Stance line"), warnings)
+        self.assertIn(dict(round=3, agent="antigravity", issue="round 3 critique cites no snapshot file"), warnings)
+        self.assertFalse([w for w in warnings if w["agent"] == "codex"])
+        self.assertIn("Protocol warnings", (self.run_dir / "synthesis.md").read_text())
+        self.assertEqual(len(self.calls), 4)
+
     def test_export_failure_is_visible_and_keeps_completed_round_without_retry(self):
         self.run_dir = self.engine.init_run(
             self.brief, "codex", self.root, run_dir=self.root / "failed-delivery-run",

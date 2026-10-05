@@ -227,7 +227,7 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
              codex_model=None, codex_effort=None,
              claude_model=None, claude_effort=None,
              antigravity_model=None, antigravity_effort=None,
-             use_defaults=False, chair_model=None, export_json=False):
+             use_defaults=False, chair_model=None, export_json=False, max_calls=None):
     if chair not in AGENTS:
         raise ValueError("chair must be codex, claude or antigravity")
     if agents is None:
@@ -280,6 +280,8 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
         raise ValueError("total timeout must be a finite positive number")
     if private and output_dir is not None:
         raise ValueError("private output cannot be combined with output_dir")
+    if max_calls is not None and (type(max_calls) is not int or max_calls <= 0):
+        raise ValueError("max_calls must be a positive integer")
     if private and export_json:
         raise ValueError("private output cannot be combined with export_json")
     snapshots = []
@@ -325,7 +327,7 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
                  brief_hash=digest(brief), sources=snapshots, participants=selected_agents,
                  active=list(selected_agents), failures={}, round=1, rounds={}, status="active",
                  output_dir=None, slug=session_slug, language=language, metrics=metrics,
-                 chair_model=chair_model, export_json=bool(export_json))
+                 chair_model=chair_model, export_json=bool(export_json), call_budget=max_calls)
     if output_dir is None and not private:
         output_dir = cwd / "docs" / "cogitors-decisions"
     if output_dir is not None:
@@ -350,7 +352,7 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
                  for item in snapshots],
         rounds=[1, 2, 3, 4], peer_answers_sent_in_rounds=[2, 3, 4],
         max_calls=len(advisors) * 4,
-        max_calls_with_retries=len(advisors) * 4 * (1 + MAX_EXTENSIONS))
+        max_calls_with_retries=len(advisors) * 4 * (1 + MAX_EXTENSIONS), call_budget=max_calls)
     state["scope_approved"] = False
     (directory / "brief.md").write_text(brief, encoding="utf-8")
     (directory / f"brief-{session_slug}.md").write_text(brief, encoding="utf-8")
@@ -384,6 +386,25 @@ def approve_scope(run_dir):
     return status(directory)
 
 
+def calls_spent(directory):
+    log = Path(directory) / "calls.log"
+    return sum(int(line) for line in log.read_text().split()) if log.exists() else 0
+
+
+def spend_calls(directory, count):
+    # Logged at claim time, before the call: a crash or unknown outcome still counts as spent.
+    # Append-only file, not state.json: dispatch runs beside the chair, which also writes state.
+    with (Path(directory) / "calls.log").open("a", encoding="utf-8") as target:
+        target.write("%d\n" % count)
+
+
+def require_budget(directory, state, count):
+    budget = state.get("call_budget")
+    if budget is not None and calls_spent(directory) + count > budget:
+        raise ValueError("call budget exhausted (%d of %d spent, %d needed); no model was called"
+                         % (calls_spent(directory), budget, count))
+
+
 def dispatch_round(run_dir):
     directory, state = load_state(run_dir)
     require_active(state)
@@ -401,6 +422,7 @@ def dispatch_round(run_dir):
         raise ValueError("the host must not be dispatched as an extra advisor")
     if (location / "dispatched").exists():
         raise ValueError("round was already dispatched; no automatic retry")
+    require_budget(directory, state, len(jobs))
     runner.preflight(jobs)
     remaining = state["deadline"] - time.time()
     if remaining <= 0:
@@ -408,6 +430,7 @@ def dispatch_round(run_dir):
     # Claim before calling: a crash or second invocation cannot silently spend again.
     with (location / "dispatched").open("x", encoding="utf-8") as target:
         target.write(str(time.time()))
+    spend_calls(directory, len(jobs))
     jobs = [dict(job, timeout_seconds=min(job["timeout_seconds"], remaining)) for job in jobs]
     write_json(location / "dispatched-jobs.json", {"jobs": jobs})
     cli_directory = location / "cli"
@@ -484,10 +507,31 @@ def synthesis_prompt(directory, state):
              "Use the user's language. Then pass it to finish; do not call another model.",
              "Participation: %s/%s final advisors. Failures: %s" % (
                  len(state["active"]), len(participants), json.dumps(state["failures"], ensure_ascii=False))]
+    if state.get("protocol_warnings"):
+        parts.append("Protocol warnings (format only; weigh, do not discard answers):\n"
+                     + json.dumps(state["protocol_warnings"], ensure_ascii=False))
     parts.append("Source snapshot:\n" + json.dumps(state["sources"], ensure_ascii=False))
     for agent in participants:
         parts.append(read_text(directory / f"{agent}-{slug}.md"))
     write_text_atomic(directory / "synthesis.md", "\n\n".join(parts))
+
+
+def protocol_warnings(state, complete):
+    """Format checks only, shown to the chair; they never trigger a retry or judge content."""
+    number = state["round"]
+    # ponytail: a citation is a mentioned snapshot file name; quoting text without the name is missed.
+    names = {Path(item["path"]).name if not item["path"].startswith("git:") else "diff"
+             for item in state["sources"]}
+    warnings = []
+    for agent, result in complete.items():
+        text = result.get("response")
+        if result.get("status") != "success" or not isinstance(text, str):
+            continue
+        if not re.search(r"^\W*(?:Stance|Duruş)\W*:", text, flags=re.M | re.I):
+            warnings.append(dict(round=number, agent=agent, issue="missing Stance line"))
+        if number == 3 and names and not any(name.lower() in text.lower() for name in names):
+            warnings.append(dict(round=number, agent=agent, issue="round 3 critique cites no snapshot file"))
+    return warnings
 
 
 def advance(run_dir):
@@ -532,6 +576,9 @@ def advance(run_dir):
             complete[agent] = dict(agent=agent, status="unavailable", response=None,
                                    error=state["failures"].get(agent, "did not participate"), usage=None)
     state["rounds"][str(state["round"])] = complete
+    # A timeout retry re-advances the same round; replace that round's warnings, never stack them.
+    state["protocol_warnings"] = [w for w in state.get("protocol_warnings", []) if w["round"] != state["round"]]
+    state["protocol_warnings"] += protocol_warnings(state, complete)
     state["active"] = [agent for agent in participants if complete[agent]["status"] == "success"]
     if "metrics" not in state:
         state["metrics"] = {"started_at": time.time(), "rounds": {}}
@@ -617,6 +664,7 @@ def extend_timeout(run_dir, add_seconds=180):
     if not failed_agents:
         raise ValueError("no failed or timed out advisors found to retry")
 
+    require_budget(directory, state, len(failed_agents))
     used = state.setdefault("extensions", {}).get(str(state["round"]), 0)
     if used >= MAX_EXTENSIONS:
         raise ValueError("extension limit (%d) reached for this round; use continue-partial or stop" % MAX_EXTENSIONS)
@@ -640,6 +688,7 @@ def extend_timeout(run_dir, add_seconds=180):
             retry_jobs.append(updated_job)
 
     runner.preflight(retry_jobs)
+    spend_calls(directory, len(retry_jobs))
     new_results, received = run_cancellable(retry_jobs, cli_retry_dir)
     new_res_map = {r["agent"]: r for r in new_results}
 
@@ -2244,6 +2293,8 @@ def status(run_dir):
                                 not state.get("export_error") else directory) / final_html)
                 if state["status"] in ("complete", "partial") else None,
                 scope=state.get("scope"), scope_approved=state.get("scope_approved", False),
+                calls_spent=calls_spent(directory),
+                protocol_warnings=state.get("protocol_warnings", []),
                 next_action=next_action(directory, state),
                 banner=banner_txt,
                 banner_md=banner_md)
@@ -2451,6 +2502,8 @@ def main():
                           help="keep all artifacts in the private run directory")
     init.add_argument("--export-json", action="store_true",
                       help="also export the structured decision as decision-<slug>.json")
+    init.add_argument("--max-calls", type=int,
+                      help="hard ceiling on external model calls for the run, retries included")
     init.add_argument("--timeout", type=float, default=180)
     init.add_argument("--total-timeout", type=float, default=1800)
     init.add_argument("--slug", help="custom slug for output directory")
@@ -2562,7 +2615,8 @@ def main():
                                  total_timeout=args.total_timeout, output_dir=args.output_dir,
                                  private=args.private, slug=args.slug,
                                  agents=args.agents, git_diff=args.git_diff, git_staged=args.git_staged,
-                                 chair_model=args.chair_model, export_json=args.export_json)
+                                 chair_model=args.chair_model, export_json=args.export_json,
+                                 max_calls=args.max_calls)
             result = status(directory)
             if args.banner:
                 print(result["banner"])
