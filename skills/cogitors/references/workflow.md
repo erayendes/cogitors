@@ -62,7 +62,7 @@ The Cogitors provides native model inspection and configuration without requirin
 
 ## 2. Repeat advisor rounds 1–4
 
-Before the first dispatch, show the user `status.scope` from `init`: providers, file count, each file's path, size and hash (`sources`), bytes/characters, rounds, that peer answers are sent in rounds 2-4, `max_calls` and `max_calls_with_retries`. Ask once for explicit consent to that whole scope, then run `approve RUN_DIR`. `dispatch` refuses until approved; do not approve on the user's behalf.
+Before the first dispatch, show the user `status.scope` from `init`: providers, file count, each file's path, size and hash (`sources`), bytes/characters, rounds, that peer answers are sent in rounds 2-4, `max_calls` and `max_calls_with_retries`. When the user sets a cost limit, pass `--max-calls N`: it becomes `scope.call_budget`, every dispatch and timeout retry counts against it the moment it is claimed (an unknown outcome is still spent), and `status.calls_spent` reports the total. A call that would exceed it is refused before any model runs. Ask once for explicit consent to that whole scope, then run `approve RUN_DIR`. `dispatch` refuses until approved; do not approve on the user's behalf.
 
 First run `check RUN_DIR` in the context intended for dispatch. Follow [execution](execution.md) for narrowly approved host permissions if it fails. Each dispatch checks again before claiming its marker; failed checks spend no model tokens. An approved check does not grant future dispatch commands permission automatically.
 
@@ -103,7 +103,7 @@ After the user chooses `continue-partial`, two survivors continue through the sa
 
 ## 3. Synthesize once
 
-After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures. The chair reads it and writes JSON. `answer`, `agreement` and `uncertainties` are nonempty strings. `dissent` is a string, or one item per dissenting participant with the majority's reply. `actions` and `not_now` are optional; keep actions out of `answer`, since the report lists them separately:
+After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures, plus any `protocol_warnings` (a missing `Stance:` line, or a round 3 critique that names no snapshot file). These are format checks only: they never trigger a retry, and a flagged answer still counts. The chair reads it and writes JSON. `answer`, `agreement` and `uncertainties` are nonempty strings. `dissent` is a string, or one item per dissenting participant with the majority's reply. `actions` and `not_now` are optional; keep actions out of `answer`, since the report lists them separately:
 
 ```json
 {
