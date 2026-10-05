@@ -504,6 +504,8 @@ def synthesis_prompt(directory, state):
              "dissent is a string, or a list of {cogitor, position, response} with one item per dissenting "
              "participant; response is the majority's reply. Optional actions: a list of {priority: P0|P1|P2, "
              "text: 'Title. Detail.'}; keep them out of answer. Optional not_now: a list of {item, reason} for what was deliberately deferred and why. "
+             "Optional evidence: a list of {source, quote, claim}; source is a snapshot path or file name and "
+             "quote is copied verbatim from it. finish marks whether each quote is found. "
              "Use the user's language. Then pass it to finish; do not call another model.",
              "Participation: %s/%s final advisors. Failures: %s" % (
                  len(state["active"]), len(participants), json.dumps(state["failures"], ensure_ascii=False))]
@@ -1029,8 +1031,8 @@ def dissent_items(dissent):
 
 def validate_synthesis(answer, participants):
     required = ("answer", "agreement", "dissent", "uncertainties")
-    if not isinstance(answer, dict) or not set(required) <= set(answer) or set(answer) - set(required) - {"actions", "not_now"}:
-        raise ValueError("final JSON needs answer, agreement, dissent and uncertainties; optional actions, not_now")
+    if not isinstance(answer, dict) or not set(required) <= set(answer) or set(answer) - set(required) - {"actions", "not_now", "evidence"}:
+        raise ValueError("final JSON needs answer, agreement, dissent and uncertainties; optional actions, not_now, evidence")
     if any(not isinstance(answer[f], str) or not answer[f].strip() for f in ("answer", "agreement", "uncertainties")):
         raise ValueError("answer, agreement and uncertainties must be non-empty strings")
     dissent = answer["dissent"]
@@ -1050,6 +1052,23 @@ def validate_synthesis(answer, participants):
             not isinstance(x, dict) or not all(isinstance(x.get(k), str) and x[k].strip() for k in ("item", "reason"))
             for x in not_now):
         raise ValueError("not_now items need an item and the reason it is deferred")
+    evidence = answer.get("evidence", [])
+    if not isinstance(evidence, list) or any(
+            not isinstance(x, dict) or set(x) - {"source", "quote", "claim"}
+            or not all(isinstance(x.get(k), str) and x[k].strip() for k in ("source", "quote"))
+            or not isinstance(x.get("claim", ""), str) for x in evidence):
+        raise ValueError("evidence items need a source and a verbatim quote; optional claim")
+
+
+def check_quotes(state, evidence):
+    """Mark each quote found verbatim (whitespace-insensitive) in the named snapshot.
+    A match proves the text exists, not that the claim built on it is right."""
+    flat = lambda text: " ".join(text.split())
+    checked = []
+    for item in evidence:
+        snapshot = [s for s in state["sources"] if item["source"] in (s["path"], Path(s["path"]).name)]
+        checked.append(dict(item, matched=bool(snapshot) and flat(item["quote"]) in flat(snapshot[0]["text"])))
+    return checked
 
 
 def fmt_number(value, lang, decimals=0):
@@ -1923,6 +1942,13 @@ def finish(run_dir, answer_path):
             value = "\n\n".join("**%s:** %s%s" % (d["cogitor"], d["position"],
                                   "\n\n*Response:* " + d["response"] if d.get("response") else "") for d in value)
         parts.append("## %s\n\n%s" % (field.capitalize(), value))
+    if answer.get("evidence"):
+        answer["evidence"] = check_quotes(state, answer["evidence"])
+        parts.append("## Evidence\n\n" + "\n".join(
+            "- %s `%s`: \"%s\"%s" % ("Quote matched in" if e["matched"] else "Quote NOT found in",
+                                      Path(e["source"]).name, e["quote"],
+                                      " — " + e["claim"] if e.get("claim") else "")
+            for e in answer["evidence"]))
     if answer.get("actions") or answer.get("not_now"):
         lines = ["- **%s** %s" % (a["priority"], a["text"]) for a in answer.get("actions", [])]
         lines += ["- **Not now: %s** — %s" % (x["item"], x["reason"]) for x in answer.get("not_now", [])]
@@ -1959,7 +1985,12 @@ def finish(run_dir, answer_path):
 
     write_text_atomic(directory / final_md, "\n\n".join(parts) + "\n")
     write_json(directory / "decision.json", answer)
-    exported = [final_md, final_html]
+    final_metrics = f"metrics-{slug}.json"
+    write_json(directory / final_metrics, dict(
+        slug=slug, status=state["status"], chair=state["chair"], participants=participants,
+        calls_spent=calls_spent(directory), total_duration_seconds=total_duration,
+        rounds=state["metrics"].get("rounds", {})))
+    exported = [final_md, final_html, final_metrics]
     if state.get("export_json"):
         write_json(directory / f"decision-{slug}.json", answer)
         exported.append(f"decision-{slug}.json")
@@ -2334,6 +2365,47 @@ def cycle(run_dir, answer_path):
     return advance(run_dir)
 
 
+def usage_tokens(usage):
+    if not isinstance(usage, dict):
+        return None
+    total = usage.get("total_tokens") or ((usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+                                          + (usage.get("output_tokens") or usage.get("completion_tokens") or 0))
+    return total or None
+
+
+def metrics_summary(decisions_dir):
+    """Aggregate local metrics-<slug>.json files; never reads anything off this machine."""
+    sessions = [read_json(f) for f in sorted(Path(decisions_dir).glob("*/metrics-*.json"))]
+    average = lambda xs: round(sum(xs) / len(xs), 2) if xs else None
+    round_seconds, agents = {}, {}
+    for session in sessions:
+        for number, data in session.get("rounds", {}).items():
+            jobs = data.get("jobs", {})
+            durations = [j["duration_seconds"] for j in jobs.values() if j.get("duration_seconds") is not None]
+            if durations:  # a round lasts as long as its slowest participant
+                round_seconds.setdefault(number, []).append(max(durations))
+            for agent, job in jobs.items():
+                entry = agents.setdefault(agent, dict(seconds=[], tokens=[], unmetered=0))
+                if job.get("duration_seconds") is not None:
+                    entry["seconds"].append(job["duration_seconds"])
+                tokens = usage_tokens(job.get("usage"))
+                if tokens is None:
+                    entry["unmetered"] += 1
+                else:
+                    entry["tokens"].append(tokens)
+    spent = [s["calls_spent"] for s in sessions if isinstance(s.get("calls_spent"), int)]
+    return dict(
+        sessions=len(sessions), complete=sum(1 for s in sessions if s.get("status") == "complete"),
+        avg_total_seconds=average([s["total_duration_seconds"] for s in sessions
+                                   if s.get("total_duration_seconds") is not None]),
+        calls_spent=sum(spent) if spent and len(spent) == len(sessions) else "unknown",
+        avg_round_seconds={n: average(v) for n, v in sorted(round_seconds.items())},
+        # Providers report tokens differently; totals stay per agent, never summed across agents.
+        agents={a: dict(avg_call_seconds=average(e["seconds"]),
+                        tokens=sum(e["tokens"]) if e["tokens"] else "unknown",
+                        calls_without_usage=e["unmetered"]) for a, e in sorted(agents.items())})
+
+
 def doctor(cwd=None, as_json=False):
     results = {}
     for agent in AGENTS:
@@ -2547,6 +2619,8 @@ def main():
     doc.add_argument("--json", action="store_true", help="output JSON")
     doc.add_argument("--cwd", type=Path, default=Path.cwd())
 
+    met_cmd = sub.add_parser("metrics", help="summarize time and calls across local finished sessions")
+    met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors-decisions")
     html_cmd = sub.add_parser("export-html", help="render or re-render interactive decision HTML")
     html_cmd.add_argument("run_dir", type=Path)
 
@@ -2583,6 +2657,8 @@ def main():
             result = cycle(args.run_dir, args.file)
         elif args.command == "export-html":
             result = export_html_cmd(args.run_dir)
+        elif args.command == "metrics":
+            result = metrics_summary(args.dir)
         elif args.command == "extend-timeout":
             result = extend_timeout(args.run_dir, add_seconds=args.add)
         elif args.command == "init":
