@@ -115,8 +115,13 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kay
   ├── claude-<slug>.md
   ├── codex-<slug>.md
   ├── decision-<slug>.md
-  └── decisions-<slug>.html
+  ├── decision-<slug>.json   # yalnızca --export-json ile
+  ├── decisions-<slug>.html
+  └── metrics-<slug>.json    # süreler, çağrılar, bildirilen token'lar; model metni yok
 ```
+
+- **Kanıt kontrolü:** Elder'ın sentezde aktardığı alıntılar paylaşılan dosyalarda aranır ve eşleşip eşleşmediği işaretlenir. Eşleşme alıntının var olduğunu kanıtlar, iddianın doğru olduğunu değil.
+- **Metrikler:** `npx cogitors metrics` biten oturumlardaki süreyi, çağrıları ve ajan başına token'ları özetler; sağlayıcı bildirmediyse token `unknown` görünür.
 
 ---
 
@@ -128,7 +133,7 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kay
 
 ## Sınırlar, Maliyet ve Güvenlik
 
-- **Maliyet:** Bir oturum 8 harici model çağrısı yapar (onayladığınız zaman aşımı tekrarları hariç); çağrılar başlamadan önce kapsamı siz onaylarsınız.
+- **Maliyet:** Bir oturum 8 harici model çağrısı yapar (onayladığınız zaman aşımı tekrarları hariç); çağrılar başlamadan önce, paylaşılan her dosyanın yolu, boyutu ve hash'i dahil kapsamı siz onaylarsınız. `--max-calls N` tekrarlar dahil kesin bir üst sınır koyar.
 - **Kaynak kod:** Müzakere kodu değiştirmez; bir kaynak dosya değişirse oturum durur.
 - **Katılım:** Bir ajan başarısız olursa size sorulur; 2 katılımcının altında oturum sürmez.
 - **Süre:** Çağrı başına 180 saniye, oturum başına 1800 saniye (`--timeout`, `--total-timeout`).

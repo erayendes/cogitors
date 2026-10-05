@@ -115,8 +115,13 @@ Every session is saved in the task's language under your project's `docs/cogitor
   ├── claude-<slug>.md
   ├── codex-<slug>.md
   ├── decision-<slug>.md
-  └── decisions-<slug>.html
+  ├── decision-<slug>.json   # only with --export-json
+  ├── decisions-<slug>.html
+  └── metrics-<slug>.json    # durations, calls, reported tokens; no model text
 ```
+
+- **Evidence check:** Quotes the Elder cites in the synthesis are checked against the shared files and marked as matched or not. A match proves the quote exists, not that the claim is right.
+- **Metrics:** `npx cogitors metrics` summarizes time, calls and per-agent tokens across finished sessions; tokens show as `unknown` when a provider reported none.
 
 ---
 
@@ -128,7 +133,7 @@ Run `npx skills add erayendes/cogitors` and install all four skills. Details [he
 
 ## Limits, Cost and Safety
 
-- **Cost:** A session makes 8 external model calls (plus any timeout retries you approve), and you approve the scope before any call starts.
+- **Cost:** A session makes 8 external model calls (plus any timeout retries you approve), and you approve the scope, including every shared file's path, size and hash, before any call starts. `--max-calls N` sets a hard ceiling, retries included.
 - **Source code:** Deliberation never edits code; if a source file changes, the session stops.
 - **Participation:** If an agent fails, you are asked; a session never continues with fewer than 2 participants.
 - **Time:** 180 seconds per call and 1800 seconds per session (`--timeout`, `--total-timeout`).
