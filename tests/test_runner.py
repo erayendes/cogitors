@@ -192,7 +192,7 @@ class RunnerCheck(unittest.TestCase):
             {"model": ""}, {"model": "  "}, {"model": None}, {"model": "a\0b"},
             {"model": 1}, {"effort": ""}, {"effort": "unsupported"}, {"effort": None},
             {"effort": "high\0"}, {"agent": "claude", "effort": "ultra"},
-            {"agent": "antigravity", "effort": "xhigh"})]
+            {"agent": "antigravity", "effort": "ultra"})]
         for jobs in invalid:
             with self.subTest(jobs=jobs):
                 completed = self.invoke(jobs)

@@ -28,7 +28,7 @@ Write JSON using the host's file tool; do not interpolate a raw prompt into shel
 }
 ```
 
-`agent` is `codex`, `claude` or `antigravity`; `cwd` must exist and be absolute. Omit `model` and `effort` to inherit settings. Model names are passed literally, never guessed or silently replaced. Current effort options: Codex `low/medium/high/xhigh/max/ultra`; Claude `low/medium/high/xhigh/max`; Antigravity `low/medium/high/max`. A model can still reject a CLI-supported effort. Report that incompatibility; do not fall back automatically.
+`agent` is `codex`, `claude` or `antigravity`; `cwd` must exist and be absolute. Omit `model` and `effort` to inherit settings. Model names are passed literally, never guessed or silently replaced. Current effort options: Codex `low/medium/high/xhigh/max/ultra`; Claude `low/medium/high/xhigh/max`; Antigravity `low/medium/high/xhigh/max`. A model can still reject a CLI-supported effort. Report that incompatibility; do not fall back automatically.
 
 ```sh
 python3 /actual/installed-skill/scripts/run.py /path/job.json
@@ -44,6 +44,6 @@ Use the host's background mechanism for long calls. Stdout returns paths and sta
 | Claude | `-p --permission-mode plan --output-format json` | `acceptEdits` | `--model`; `--effort` |
 | Antigravity | `--mode plan --sandbox --output-format json -p …` | `accept-edits` | `--model`; `--effort` |
 
-Command forms were checked with local help for codex-cli 0.156.1, Claude Code 2.1.281 and agy 1.2.11. Live provider/model availability is not implied. Inspect local help once on incompatibility. Do not add approval/sandbox bypass flags. Claude plan and Antigravity plan are not interchangeable OS read-only guarantees; any host exception needs the explicit approval above. Do not combine Antigravity plan with `--disable-slash-commands`. `--bare` is not a generic token-saving flag: it changes authentication behavior.
+Command forms were checked with local help for codex-cli 0.159.3, Claude Code 2.1.286 and agy 1.3.1. Live provider/model availability is not implied. Inspect local help once on incompatibility. Do not add approval/sandbox bypass flags. Claude plan and Antigravity plan are not interchangeable OS read-only guarantees; any host exception needs the explicit approval above. Do not combine Antigravity plan with `--disable-slash-commands`. `--bare` is not a generic token-saving flag: it changes authentication behavior.
 
 Timeout/interruption terminates only the launcher's own process groups. Already-started remote work or detached tools are not guaranteed cancelled. Retain successes, report failures and do not automatically resubmit. If a follow-up is explicitly requested, use this job's recorded ID with the CLI's documented resume command, never `--last`/`--continue`. The Cogitors' rounds use fresh bounded prompts instead.

@@ -20,7 +20,7 @@ import time
 EFFORTS = {
     "codex": {"low", "medium", "high", "xhigh", "max", "ultra"},
     "claude": {"low", "medium", "high", "xhigh", "max"},
-    "antigravity": {"low", "medium", "high", "max"},
+    "antigravity": {"low", "medium", "high", "xhigh", "max"},
 }
 MAX_OUTPUT_BYTES = 5_000_000
 MAX_ANTIGRAVITY_ARGV_BYTES = 250_000
