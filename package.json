@@ -1,6 +1,6 @@
 {
   "name": "cogitors",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Codex, Claude and Antigravity deliberate over five rounds and synthesize one reasoned decision.",
   "keywords": ["ai", "agents", "agent-skills", "codex", "claude", "antigravity", "deliberation", "code-review"],
   "homepage": "https://github.com/erayendes/cogitors#readme",
