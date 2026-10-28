@@ -779,8 +779,10 @@ print(json.dumps(data))
         final = self.root / "structured.json"
         final.write_text(json.dumps(dict(
             answer="Keep the limit.", agreement="All agree.", uncertainties="None measured.",
-            dissent=[{"cogitor": "claude", "position": "Wants `100`.", "response": "Evidence says 10."}],
-            actions=[{"priority": "P0", "text": "Fix the limit. Add a test."}], not_now=[{"item": "TUI", "reason": "Breaks zero dependencies."}])))
+            dissent=[{"cogitor": "claude", "position": "Wants `100`.", "response": "Evidence says 10.",
+                      "settle_by": "A load test at 100."}],
+            actions=[{"priority": "P0", "text": "Fix the limit. Add a test."}], not_now=[{"item": "TUI", "reason": "Breaks zero dependencies."}],
+            revisit={"date": "2026-12-01", "check": "No limit errors in the logs."})))
         self.engine.finish(self.run_dir, final)
         html_text = (Path(self.run_dir) / f"decisions-{self.slug}.html").read_text(encoding="utf-8")
         md_text = (Path(self.run_dir) / f"decision-{self.slug}.md").read_text(encoding="utf-8")
@@ -792,6 +794,12 @@ print(json.dumps(data))
         self.assertNotIn("downloadMarkdown", html_text)
         self.assertIn("**claude:** Wants `100`.", md_text)
         self.assertIn("- **P0** Fix the limit. Add a test.", md_text)
+        self.assertIn("*Settled by:* A load test at 100.", md_text)
+        self.assertIn("**2026-12-01** — No limit errors in the logs.", md_text)
+        self.assertIn("Settled by:</strong> A load test at 100.", html_text)
+        self.assertIn("<strong>2026-12-01</strong> — No limit errors in the logs.", html_text)
+        metrics = json.loads((Path(self.run_dir) / f"metrics-{self.slug}.json").read_text())
+        self.assertEqual(metrics["revisit_date"], "2026-12-01")
         state = json.loads((Path(self.run_dir) / "state.json").read_text())
         self.assertIsInstance(state["metrics"]["rounds"]["1"]["jobs"]["codex"]["duration_seconds"], float)
         self.assertNotIn("tok", html_text.split("<tbody>")[1].split("</tbody>")[0])  # no usage reported, no tokens
@@ -800,6 +808,22 @@ print(json.dumps(data))
                                        dissent=[{"cogitor": "nobody", "position": "x"}])))
         with self.assertRaisesRegex(ValueError, "dissent list items"):
             self.engine.validate_synthesis(json.loads(bad.read_text()), ["codex", "claude"])
+        for revisit in ({"date": "2026-02-30", "check": "x"}, {"date": "20261201", "check": "x"},
+                        {"date": "2026-12-01", "check": " "}, {"date": "2026-12-01"}, "2026-12-01"):
+            with self.assertRaisesRegex(ValueError, "revisit needs"):
+                self.engine.validate_synthesis(dict(answer="a", agreement="b", dissent="c", uncertainties="d",
+                                                    revisit=revisit), ["codex"])
+
+    def test_revisit_lists_only_sessions_whose_date_has_come(self):
+        decisions = self.root / "revisit-decisions"
+        for slug, date in (("later", "2026-12-01"), ("due", "2026-10-01"), ("today", "2026-10-28"), ("none", None)):
+            folder = decisions / ("2026-%s" % slug)
+            folder.mkdir(parents=True)
+            (folder / ("metrics-%s.json" % slug)).write_text(json.dumps(dict(status="complete", revisit_date=date)))
+        result = self.engine.revisit_due(decisions, today=self.engine.datetime.date(2026, 10, 28))
+        self.assertEqual([d["slug"] for d in result["due"]], ["due", "today"])
+        self.assertTrue(result["due"][0]["decision"].endswith("2026-due/decision-due.md"))
+        self.assertEqual(self.engine.revisit_due(self.root / "nowhere")["due"], [])
 
 
 if __name__ == "__main__":

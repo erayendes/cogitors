@@ -103,16 +103,17 @@ After the user chooses `continue-partial`, two survivors continue through the sa
 
 ## 3. Synthesize once
 
-After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures, plus any `protocol_warnings` (a missing `Stance:` line, or a round 3 critique that names no snapshot file). These are format checks only: they never trigger a retry, and a flagged answer still counts. The chair reads it and writes JSON. `answer`, `agreement` and `uncertainties` are nonempty strings. `dissent` is a string, or one item per dissenting participant with the majority's reply. `actions`, `not_now` and `evidence` are optional. Each `evidence` item is `{source, quote, claim}` with a quote copied verbatim from a snapshot file; `finish` marks it matched or not found. A match only proves the quote is in the snapshot, not that the claim is right; keep actions out of `answer`, since the report lists them separately:
+After round 4, status is `ready`, round is `5`, and `synthesis.md` contains the original task, source snapshot, all four rounds, final views and failures, plus any `protocol_warnings` (a missing `Stance:` line, or a round 3 critique that names no snapshot file). These are format checks only: they never trigger a retry, and a flagged answer still counts. The chair reads it and writes JSON. `answer`, `agreement` and `uncertainties` are nonempty strings. `dissent` is a string, or one item per dissenting participant with the majority's reply and, optionally, `settle_by`: the evidence that would settle it. `actions`, `not_now`, `evidence` and `revisit` are optional. `revisit` is `{date: YYYY-MM-DD, check}`, where `check` says what would show the answer was right or wrong; `revisit` lists sessions whose date has come. Each `evidence` item is `{source, quote, claim}` with a quote copied verbatim from a snapshot file; `finish` marks it matched or not found. A match only proves the quote is in the snapshot, not that the claim is right; keep actions out of `answer`, since the report lists them separately:
 
 ```json
 {
   "answer": "The supported recommendation or deliverable.",
   "agreement": "Which conclusions are shared, by whom; explicitly say when none are shared.",
-  "dissent": [{"cogitor": "antigravity", "position": "The minority position.", "response": "Why the others disagree."}],
+  "dissent": [{"cogitor": "antigravity", "position": "The minority position.", "response": "Why the others disagree.", "settle_by": "The evidence that would settle it."}],
   "uncertainties": "Unverified assumptions, missing checks and limits.",
   "actions": [{"priority": "P0", "text": "Title. One-sentence detail."}],
-  "not_now": [{"item": "Deferred item", "reason": "Why it waits."}]
+  "not_now": [{"item": "Deferred item", "reason": "Why it waits."}],
+  "revisit": {"date": "2027-01-15", "check": "What would show the answer was right or wrong."}
 }
 ```
 

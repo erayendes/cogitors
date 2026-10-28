@@ -117,11 +117,12 @@ Every session is saved in the task's language under your project's `docs/cogitor
   ├── decision-<slug>.md
   ├── decision-<slug>.json   # only with --export-json
   ├── decisions-<slug>.html
-  └── metrics-<slug>.json    # durations, calls, reported tokens; no model text
+  └── metrics-<slug>.json    # durations, calls, reported tokens, revisit date; no model text
 ```
 
 - **Evidence check:** Quotes the Elder cites in the synthesis are checked against the shared files and marked as matched or not. A match proves the quote exists, not that the claim is right.
 - **Metrics:** `npx cogitors metrics` summarizes time, calls and per-agent tokens across finished sessions; tokens show as `unknown` when a provider reported none.
+- **Revisit:** The Elder can set a revisit date and what would show the decision was right; `npx cogitors revisit` lists the sessions whose date has come. Each reasoned dissent can also name the evidence that would settle it.
 
 ---
 

@@ -117,11 +117,12 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kay
   ├── decision-<slug>.md
   ├── decision-<slug>.json   # yalnızca --export-json ile
   ├── decisions-<slug>.html
-  └── metrics-<slug>.json    # süreler, çağrılar, bildirilen token'lar; model metni yok
+  └── metrics-<slug>.json    # süreler, çağrılar, bildirilen token'lar, yeniden bakış tarihi; model metni yok
 ```
 
 - **Kanıt kontrolü:** Elder'ın sentezde aktardığı alıntılar paylaşılan dosyalarda aranır ve eşleşip eşleşmediği işaretlenir. Eşleşme alıntının var olduğunu kanıtlar, iddianın doğru olduğunu değil.
 - **Metrikler:** `npx cogitors metrics` biten oturumlardaki süreyi, çağrıları ve ajan başına token'ları özetler; sağlayıcı bildirmediyse token `unknown` görünür.
+- **Yeniden bakış:** Elder, karara yeniden bakılacak bir tarih ve kararın doğru çıkıp çıkmadığını neyin göstereceğini yazabilir; `npx cogitors revisit` tarihi gelen oturumları listeler. Her gerekçeli ayrışma, onu neyin netleştireceğini de belirtebilir.
 
 ---
 

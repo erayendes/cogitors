@@ -9,6 +9,8 @@ Three real participants perform the same complete task, reconsider, debate, fina
 
 ## Start
 
+Screen before any paid call. A session makes about eight model calls, which are wasted when the call is already made (signed, shipped, announced), when the user only wants confirmation, or when there are no concrete options yet. Say so plainly: for a made call, offer to note the expected outcome and a revisit date instead; for confirmation, ask whether the answer is allowed to be no; for no options, ask for two or three rough ones. Start only if the user still wants the deliberation.
+
 Read [workflow](references/workflow.md) to operate `scripts/cogitor.py`. It enforces round order, records separate advisor files, rejects repeat dispatches and supplies the actual final views to synthesis. Read [execution](references/execution.md) for CLI settings and permission limits. Packaged single-agent skills use the same adapter.
 
 For `/cogitors Review this proposal`, give all three the entire review, not complementary specialties. Preserve the user's scope, language, selected models/effort and budget. Only chair and advisor are roles. Do not replace an unavailable tool with another provider or fabricate its view.
