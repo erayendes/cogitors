@@ -35,11 +35,13 @@ Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde t
 
 ---
 
-## Dört Skill
+## Beş Skill
 
 `/<model> <görev>` Codex, Antgravity ya da Claude göreve çağırılır ve arka planda işini halleder.
 
 Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protokolünü başlatır.
+
+`/voltron <görev>` aynı görevi tartışma olmadan, Elder dışındaki tüm model ve hesaplara aynı anda verir. Raporlar Elder'a gider; Elder bunları kontrol eder ve size tek bir cevap verir. Dosya değiştiren görevlerde her işçi ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
 
 ```text
 - /antigravity Bu teknik şartnamede çelişen maddeleri bul.
@@ -48,6 +50,8 @@ Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protoko
 
 - /cogitors Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
 - /cogitors --git-diff HEAD~1 Bu PR'daki değişiklikleri güvenlik ve performans açısından müzakere edin.
+
+- /voltron Bu repodaki hataları incele.
 ```
 
 > [!NOTE]
@@ -128,7 +132,7 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kay
 
 ## Hızlı Kurulum
 
-`npx skills add erayendes/cogitors` komutunu kullanın ve dört skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
+`npx skills add erayendes/cogitors` komutunu kullanın ve beş skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
 
 ---
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build four portable skill folders and .skill ZIPs with Python 3.9+."""
+"""Build five portable skill folders and .skill ZIPs with Python 3.9+."""
 
 import argparse
 import json
@@ -10,10 +10,12 @@ import tempfile
 import zipfile
 
 
-NAMES = ("cogitors", "codex", "claude", "antigravity")
+NAMES = ("cogitors", "codex", "claude", "antigravity", "voltron")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9-]{1,64}$")
 EXTENSIONS = {".md", ".py", ".yaml"}
 SHARED = ("scripts/run.py", "references/execution.md")
+# voltron runs through the cogitors controller.
+SHARED_EXTRA = {"voltron": ("scripts/cogitor.py",)}
 SENSITIVE_NAME = re.compile(
     r"(?:^|[._-])(?:auth|credentials?|secrets?|tokens?|passwords?)(?:[._-]|$)", re.I
 )
@@ -91,10 +93,15 @@ def package(source, output):
             if relative in bundles[name]:
                 raise ValueError("{} must use the shared {}".format(name, relative))
             bundles[name][relative] = bundles["cogitors"][relative]
+    for name, extra in SHARED_EXTRA.items():
+        for relative in extra:
+            if relative not in bundles["cogitors"]:
+                raise ValueError("cogitors is missing {}".format(relative))
+            bundles[name][relative] = bundles["cogitors"][relative]
 
-    output_parent = output.parent if output.parent.exists() else output
-    output_parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".cogitors-pkg-", dir=output_parent)).resolve()
+    # Stage beside the output, never inside it: publishing replaces the output directory.
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".cogitors-pkg-", dir=output.parent)).resolve()
     try:
         summary = {"folders": [], "archives": []}
         for name, files in bundles.items():

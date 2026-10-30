@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Run 1-3 independent CLI jobs; keep transcripts in a private temporary directory."""
+"""Run 1-5 independent CLI jobs; keep transcripts in a private temporary directory."""
 
 import concurrent.futures
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import shutil
 import socket
@@ -24,6 +25,12 @@ EFFORTS = {
 }
 MAX_OUTPUT_BYTES = 5_000_000
 MAX_ANTIGRAVITY_ARGV_BYTES = 250_000
+MAX_JOBS = 5
+JOB_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+# A second account of the same CLI is a separate config directory.
+CONFIG_ENV = {"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR"}
+# An inherited repository override would make a CLI work in another checkout than its cwd.
+GIT_OVERRIDES = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
 
 
 
@@ -46,9 +53,10 @@ def load_jobs(path):
 
 def validate_jobs(jobs):
     """Validate all jobs before starting any process; supply safe defaults."""
-    if not isinstance(jobs, list) or not 1 <= len(jobs) <= 3:
-        raise ValueError("jobs must be a list of 1-3 jobs")
-    allowed = {"agent", "cwd", "prompt", "access", "timeout_seconds", "context_only", "model", "effort"}
+    if not isinstance(jobs, list) or not 1 <= len(jobs) <= MAX_JOBS:
+        raise ValueError("jobs must be a list of 1-%s jobs" % MAX_JOBS)
+    allowed = {"agent", "cwd", "prompt", "access", "timeout_seconds", "context_only", "model", "effort",
+               "name", "config_dir"}
     seen, validated = set(), []
     for index, job in enumerate(jobs):
         if not isinstance(job, dict) or set(job) - allowed:
@@ -56,8 +64,11 @@ def validate_jobs(jobs):
         agent, cwd, prompt = (job.get(key) for key in ("agent", "cwd", "prompt"))
         if not isinstance(agent, str) or agent not in {"codex", "claude", "antigravity"}:
             raise ValueError("job %s has an invalid agent" % index)
-        if agent in seen:
-            raise ValueError("agents must be distinct")
+        name = job.get("name", agent)
+        if not isinstance(name, str) or not JOB_NAME.match(name):
+            raise ValueError("job %s name must be lowercase letters, digits or hyphens" % index)
+        if name in seen:
+            raise ValueError("job names must be distinct")
         if not isinstance(cwd, str) or "\0" in cwd or not os.path.isabs(cwd) or not os.path.isdir(cwd):
             raise ValueError("job %s cwd must be an absolute existing directory" % index)
         if not isinstance(prompt, str) or not prompt.strip() or "\0" in prompt:
@@ -80,11 +91,32 @@ def validate_jobs(jobs):
             if not isinstance(effort, str) or effort not in EFFORTS[agent]:
                 raise ValueError("job %s effort is unsupported for %s" % (index, agent))
             normalized["effort"] = effort
+        if "name" in job:
+            normalized["name"] = name
+        if "config_dir" in job:
+            # null selects the CLI's default account even when the host exports another one.
+            config_dir = job["config_dir"]
+            if agent not in CONFIG_ENV:
+                raise ValueError("job %s: %s has no separate account directory" % (index, agent))
+            if config_dir is not None and (not isinstance(config_dir, str) or "\0" in config_dir
+                                           or not os.path.isabs(config_dir) or not os.path.isdir(config_dir)):
+                raise ValueError("job %s config_dir must be null or an absolute existing directory" % index)
+            normalized["config_dir"] = config_dir
         if agent == "antigravity" and len(prompt.encode("utf-8")) > MAX_ANTIGRAVITY_ARGV_BYTES:
             raise ValueError("job %s antigravity prompt exceeds safe argv limit (%s bytes)" % (index, MAX_ANTIGRAVITY_ARGV_BYTES))
         validated.append(normalized)
-        seen.add(agent)
+        seen.add(name)
     return validated
+
+
+def job_env(job):
+    """The CLI's own environment, pointed at the job's account directory when one is set."""
+    env = {k: v for k, v in os.environ.items() if k not in GIT_OVERRIDES}
+    if job.get("config_dir"):
+        env[CONFIG_ENV[job["agent"]]] = job["config_dir"]
+    elif "config_dir" in job:
+        env.pop(CONFIG_ENV[job["agent"]], None)
+    return env
 
 
 def fingerprint(job):
@@ -157,17 +189,17 @@ def preflight(jobs):
     jobs = validate_jobs(jobs)
     errors = []
     for job in jobs:
-        agent = job["agent"]
+        agent, name = job["agent"], job.get("name", job["agent"])
         executable = "agy" if agent == "antigravity" else agent
         if not shutil.which(executable):
-            errors.append(agent + ": CLI is not installed or not on PATH")
+            errors.append(name + ": CLI is not installed or not on PATH")
             continue
         try:
             if agent == "antigravity":
                 probe_antigravity()
             else:
                 args = ["claude", "auth", "status"] if agent == "claude" else ["codex", "login", "status"]
-                result = subprocess.run(args, cwd=job["cwd"], stdin=subprocess.DEVNULL,
+                result = subprocess.run(args, cwd=job["cwd"], stdin=subprocess.DEVNULL, env=job_env(job),
                                         capture_output=True, text=True, timeout=10)
                 if agent == "claude":
                     data = json.loads(result.stdout, object_pairs_hook=unique_object)
@@ -178,12 +210,12 @@ def preflight(jobs):
                     raise ValueError("authentication not visible in this execution context; "
                                      "check with approved host permissions before requesting login")
         except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-            errors.append(agent + ": " + str(exc)[:300])
+            errors.append(name + ": " + str(exc)[:300])
     if errors:
         raise ValueError("Preflight failed; no model called. " + "; ".join(errors) +
                          ". For sandbox restrictions request host approval for this exact "
                          "command outside the sandbox; keep provider safety flags.")
-    return dict(ready=True, agents=[job["agent"] for job in jobs], model_calls=0)
+    return dict(ready=True, agents=[job.get("name", job["agent"]) for job in jobs], model_calls=0)
 
 
 def command(job):
@@ -311,25 +343,25 @@ def run_job(job, directory, cancelled):
     """Run one validated request, retaining logs and a normalized result."""
     job = validate_jobs([job])[0]
     directory = private_directory(directory)
-    agent, process = job["agent"], None
+    agent, name, process = job["agent"], job.get("name", job["agent"]), None
     target_cwd = job["cwd"]
     temp_cwd = None
     if job.get("context_only"):
         temp_cwd = tempfile.mkdtemp(prefix="cogitor-iso-")
         target_cwd = temp_cwd
     start_time = time.monotonic()
-    result = dict(agent=agent, status="failed", session_id=None, response=None, usage=None,
+    result = dict(agent=agent, name=name, status="failed", session_id=None, response=None, usage=None,
                   model=job.get("model"), effort=job.get("effort"), request_hash=fingerprint(job),
-                  exit_code=None, stdout_path=str(directory / (agent + ".stdout.log")),
-                  stderr_path=str(directory / (agent + ".stderr.log")),
-                  result_path=str(directory / (agent + ".result.json")),
+                  exit_code=None, stdout_path=str(directory / (name + ".stdout.log")),
+                  stderr_path=str(directory / (name + ".stderr.log")),
+                  result_path=str(directory / (name + ".result.json")),
                   duration_seconds=None)
     try:
         with private_file(result["stdout_path"]) as out, private_file(result["stderr_path"]) as err:
             if cancelled.is_set():
                 raise InterruptedError("run interrupted")
             args, stdin = command(job)
-            process = subprocess.Popen(args, cwd=target_cwd, start_new_session=True,
+            process = subprocess.Popen(args, cwd=target_cwd, start_new_session=True, env=job_env(job),
                                        stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
                                        stdout=out, stderr=err)
             if stdin is not None:
@@ -373,7 +405,7 @@ def run_job(job, directory, cancelled):
 
 
 def execute_jobs(jobs, directory, cancelled=None):
-    """Run 1-3 distinct providers in parallel in an empty private directory.
+    """Run 1-5 distinctly named jobs in parallel in an empty private directory.
 
     The caller runs preflight before claiming a dispatch and owns cancellation;
     this API does not install signal handlers.
@@ -421,7 +453,7 @@ def main():
     finally:
         for signum, handler in previous.items():
             signal.signal(signum, handler)
-    keys = ("agent", "status", "session_id", "stdout_path", "stderr_path", "result_path")
+    keys = ("agent", "name", "status", "session_id", "stdout_path", "stderr_path", "result_path")
     print(json.dumps({"results_dir": str(directory),
                       "jobs": [{key: result[key] for key in keys} for result in results]}))
     return 128 + received_signal if received_signal else int(any(result["status"] != "success" for result in results))

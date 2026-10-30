@@ -27,7 +27,10 @@ if agent == "codex" and sys.argv[1:] == ["login", "status"]:
     sys.exit(0)
 prompt = sys.argv[sys.argv.index("-p") + 1] if agent == "agy" else sys.stdin.read()
 task = prompt.rsplit("\n\n", 1)[-1]
-(root / (agent + ".started")).write_text(json.dumps({"cwd": os.getcwd(), "prompt": prompt, "args": sys.argv[1:]}))
+home = os.environ.get("CODEX_HOME") or os.environ.get("CLAUDE_CONFIG_DIR")
+tag = agent + ("@" + pathlib.Path(home).name if home else "")
+(root / (tag + ".started")).write_text(json.dumps({"cwd": os.getcwd(), "prompt": prompt, "args": sys.argv[1:],
+                                                  "git_dir": os.environ.get("GIT_DIR")}))
 if task in ("timeout", "interrupt"):
     child = subprocess.Popen([sys.executable, "-c", "import pathlib,sys,time; time.sleep(1.1); pathlib.Path(sys.argv[1]).touch()", str(root / "orphan-survived")])
     (root / "child.pid").write_text(str(child.pid))
@@ -70,6 +73,8 @@ class RunnerCheck(unittest.TestCase):
         self.bin.mkdir()
         self.env = dict(os.environ, PATH=str(self.bin), COGITOR_TEST_ROOT=str(self.root),
                         TMPDIR=str(self.root), PYTHONDONTWRITEBYTECODE="1")
+        for key in ("CODEX_HOME", "CLAUDE_CONFIG_DIR"):
+            self.env.pop(key, None)
         for name in ("codex", "claude", "agy"):
             executable = self.bin / name
             executable.write_text("#!" + sys.executable + "\n" + FAKE, encoding="utf-8")
@@ -203,6 +208,31 @@ class RunnerCheck(unittest.TestCase):
                                    env=self.env, capture_output=True, text=True, timeout=5)
         self.assertEqual(completed.returncode, 2)
         self.assertIn("duplicate", completed.stderr)
+
+    def test_named_jobs_run_the_same_cli_under_separate_accounts(self):
+        work = self.root / "codex-work"
+        work.mkdir()
+        base = dict(agent="codex", cwd=str(self.root), prompt="ok", timeout_seconds=5)
+        completed = self.invoke([base, dict(base, name="codexwork", config_dir=str(work))])
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual([r["name"] for r in self.results(completed)], ["codex", "codexwork"])
+        self.assertTrue((self.root / "codex.started").is_file())
+        self.assertTrue((self.root / "codex@codex-work.started").is_file())
+        # null config_dir: the default account even when the host exports another; no repo override.
+        self.env.update(CODEX_HOME=str(work), GIT_DIR=str(self.root / "elsewhere.git"))
+        for started in self.root.glob("*.started"):
+            started.unlink()
+        completed = self.invoke([dict(base, config_dir=None)])
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertTrue((self.root / "codex.started").is_file())
+        self.assertIsNone(self.started("codex")["git_dir"])
+        runner = self.runner()
+        for jobs in ([base, base], [dict(base, name="Bad")], [dict(base, config_dir="relative")],
+                     [dict(base, agent="antigravity", config_dir=str(work))],
+                     [dict(base, name="w%s" % i) for i in range(6)]):
+            with self.subTest(jobs=jobs), self.assertRaises(ValueError):
+                runner.validate_jobs(jobs)
+        self.assertEqual(len(runner.validate_jobs([dict(base, name="w%s" % i) for i in range(5)])), 5)
 
     def test_failed_responses_and_missing_binary_fail_closed(self):
         for prompt in ("json-error", "malformed", "unknown", "duplicate", "nonzero"):

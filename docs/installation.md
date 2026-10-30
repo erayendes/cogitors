@@ -8,12 +8,23 @@
 npx skills add erayendes/cogitors
 ```
 
-Install all four skills; `/codex`, `/claude` and `/antigravity` use the `cogitors` engine.
+Install all five skills; `/codex`, `/claude`, `/antigravity` and `/voltron` use the `cogitors` engine.
 
 ## Requirements
 
 * Python 3.9+ (macOS or Linux). **No external pip dependencies.**
 * The `codex`, `claude` and `agy` CLIs installed and signed in (two agents are enough for a two-member council).
+
+## Extra Accounts (Voltron)
+
+`/voltron` runs every CLI except the Elder's own session. To add a second login of Claude or Codex as its own worker, point it at that login's config directory in `~/.cogitors/config.json`. Accounts are read only from this global file, never from a project's `.cogitors.json`, so a cloned repository cannot choose which account directory a CLI loads:
+
+```json
+{"accounts": {"claudework": {"agent": "claude", "config_dir": "~/.claude-work"},
+              "codexwork": {"agent": "codex", "config_dir": "~/.codex-work"}}}
+```
+
+An account may also set its own `model` and `effort`; otherwise it uses the saved models. At most five workers run at once; `--exclude NAME` leaves one out. `cogitor.py voltron --elder claude --check` lists the workers and checks their logins without calling a model.
 
 ## Diagnostics (Doctor)
 
@@ -56,13 +67,13 @@ npx cogitors banner /path/run [--markdown]
 
 ## Manual Install (Build)
 
-To build the four standalone skill packages, clone the repository and run:
+To build the five standalone skill packages, clone the repository and run:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-This produces 4 installable folders (`cogitors`, `codex`, `claude`, `antigravity`) under `dist/` and a `.skill` zip archive for each. Copy the built folders into your agent's skill directory:
+This produces 5 installable folders (`cogitors`, `codex`, `claude`, `antigravity`, `voltron`) under `dist/` and a `.skill` zip archive for each. Copy the built folders into your agent's skill directory:
 
 | Agent / Host | Skill Directory |
 |---|---|

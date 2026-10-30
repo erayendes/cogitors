@@ -35,11 +35,13 @@ Every model receives the whole task. Over four rounds they analyze independently
 
 ---
 
-## Four Skills
+## Five Skills
 
 `/<model> <task>` calls Codex, Antigravity or Claude onto a task, and it gets the job done in the background.
 
 `/cogitors <task>` is different: it starts the five-round deliberation protocol with all three agents.
+
+`/voltron <task>` gives the same task to every other model and account at once, with no debate. Their reports go to the Elder, which checks them and gives you one answer. Tasks that change files run in a separate git worktree per worker. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
 
 ```text
 - /antigravity Find the contradicting clauses in this technical spec.
@@ -48,6 +50,8 @@ Every model receives the whole task. Over four rounds they analyze independently
 
 - /cogitors Review this architecture proposal together. Do not change any code, and state unresolved objections explicitly.
 - /cogitors --git-diff HEAD~1 Deliberate on this PR's changes for security and performance.
+
+- /voltron Review this repository for bugs.
 ```
 
 > [!NOTE]
@@ -128,7 +132,7 @@ Every session is saved in the task's language under your project's `docs/cogitor
 
 ## Quick Install
 
-Run `npx skills add erayendes/cogitors` and install all four skills. Details [here](docs/installation.md).
+Run `npx skills add erayendes/cogitors` and install all five skills. Details [here](docs/installation.md).
 
 ---
 

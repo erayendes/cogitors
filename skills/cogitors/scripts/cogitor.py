@@ -297,8 +297,8 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
         snapshots.append(dict(path=str(path), sha256=digest(text), text=text, kind="evidence"))
     if git_diff or git_staged:
         cmd = ["git", "diff", "--cached"] if git_staged else ["git", "diff"]
-        if git_diff and isinstance(git_diff, str) and git_diff != "HEAD":
-            cmd.append(git_diff)
+        if git_diff and isinstance(git_diff, str):
+            cmd.append(git_diff)  # an explicit HEAD also covers staged changes
         try:
             proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=15)
             if proc.returncode != 0:
@@ -417,7 +417,8 @@ def dispatch_round(run_dir):
         raise ValueError("run deadline exhausted; no model was called")
     location = directory / ("round-%s" % state["round"])
     jobs = runner.load_jobs(location / "jobs.json")
-    if {job["agent"]: runner.fingerprint(job) for job in jobs} != state["requests"]:
+    if len({job["agent"] for job in jobs}) != len(jobs) \
+            or {job["agent"]: runner.fingerprint(job) for job in jobs} != state["requests"]:
         raise ValueError("job integrity changed; start a new run explicitly")
     if any(job["agent"] == state["chair"] for job in jobs):
         raise ValueError("the host must not be dispatched as an extra advisor")
@@ -668,6 +669,13 @@ def extend_timeout(run_dir, add_seconds=180):
     if not failed_agents:
         raise ValueError("no failed or timed out advisors found to retry")
 
+    dispatched_path = location / "dispatched-jobs.json"
+    jobs = runner.load_jobs(dispatched_path)
+    # Dispatch capped each timeout to the deadline; compare the requests at the run's timeout.
+    if len({job["agent"] for job in jobs}) != len(jobs) or {
+            job["agent"]: runner.fingerprint(dict(job, timeout_seconds=state["timeout_seconds"]))
+            for job in jobs} != state["requests"]:
+        raise ValueError("job integrity changed; start a new run explicitly")
     require_budget(directory, state, len(failed_agents))
     used = state.setdefault("extensions", {}).get(str(state["round"]), 0)
     if used >= MAX_EXTENSIONS:
@@ -679,12 +687,6 @@ def extend_timeout(run_dir, add_seconds=180):
     state["timeout_seconds"] = new_timeout
     state["deadline"] += add_seconds
 
-    dispatched_path = location / "dispatched-jobs.json"
-    jobs = runner.load_jobs(dispatched_path)
-
-    cli_retry_dir = location / ("cli-retry-%d" % (used + 1))
-    cli_retry_dir.mkdir(mode=0o700)
-
     retry_jobs = []
     for job in jobs:
         if job["agent"] in failed_agents:
@@ -692,6 +694,9 @@ def extend_timeout(run_dir, add_seconds=180):
             retry_jobs.append(updated_job)
 
     runner.preflight(retry_jobs)
+    # Claim the retry only after preflight, so fixing a login and retrying is possible.
+    cli_retry_dir = location / ("cli-retry-%d" % (used + 1))
+    cli_retry_dir.mkdir(mode=0o700)
     spend_calls(directory, len(retry_jobs))
     new_results, received = run_cancellable(retry_jobs, cli_retry_dir)
     new_res_map = {r["agent"]: r for r in new_results}
@@ -1035,6 +1040,12 @@ def dissent_items(dissent):
 
 def validate_synthesis(answer, participants):
     required = ("answer", "agreement", "dissent", "uncertainties")
+    if isinstance(answer, dict):
+        # A model may write null for an optional field it leaves out.
+        answer = {k: v for k, v in answer.items() if not (v is None and k in ("actions", "not_now", "evidence", "revisit"))}
+        if isinstance(answer.get("dissent"), list):
+            answer["dissent"] = [{k: v for k, v in d.items() if v is not None} if isinstance(d, dict) else d
+                                 for d in answer["dissent"]]
     if not isinstance(answer, dict) or not set(required) <= set(answer) or set(answer) - set(required) - {"actions", "not_now", "evidence", "revisit"}:
         raise ValueError("final JSON needs answer, agreement, dissent and uncertainties; optional actions, not_now, evidence, revisit")
     if any(not isinstance(answer[f], str) or not answer[f].strip() for f in ("answer", "agreement", "uncertainties")):
@@ -1072,6 +1083,7 @@ def validate_synthesis(answer, participants):
             ok = False
         if not ok:
             raise ValueError("revisit needs a YYYY-MM-DD date and a non-empty check")
+    return answer
 
 
 def check_quotes(state, evidence):
@@ -1945,7 +1957,7 @@ def finish(run_dir, answer_path):
         raise ValueError("finish requires all four advisor rounds")
     check_snapshot(directory, state)
     answer = read_json(answer_path)
-    validate_synthesis(answer, state.get("participants", AGENTS))
+    answer = validate_synthesis(answer, state.get("participants", AGENTS))
     fields = ("answer", "agreement", "dissent", "uncertainties")
     participants = state.get("participants", AGENTS)
     total_p = len(participants)
@@ -2029,28 +2041,42 @@ GLOBAL_CONFIG_PATH = CONFIG_DIR / "config.json"
 LOCAL_CONFIG_NAME = ".cogitors.json"
 
 
+def read_config_file(path):
+    """A config file's object, {} when absent; an unreadable file is an error, never skipped."""
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("cannot read %s: %s" % (path, exc))
+    if not isinstance(data, dict):
+        raise ValueError("%s must contain a JSON object" % path)
+    return data
+
+
+def config_models(data):
+    """Saved models; an old file is a bare {agent: options} object."""
+    if "models" in data:
+        return data["models"] if isinstance(data["models"], dict) else {}
+    return data if set(data) <= set(AGENTS) else {}
+
+
+def read_config(cwd=None):
+    """The project's .cogitors.json, else the global file."""
+    local = read_config_file(Path(cwd) / LOCAL_CONFIG_NAME) if cwd else {}
+    return local or read_config_file(GLOBAL_CONFIG_PATH)
+
+
 def load_default_config(cwd=None):
-    if cwd:
-        local_cfg = Path(cwd) / LOCAL_CONFIG_NAME
-        if local_cfg.is_file():
-            try:
-                data = json.loads(local_cfg.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    return data.get("models", data)
-            except Exception:
-                pass
-    if GLOBAL_CONFIG_PATH.is_file():
-        try:
-            data = json.loads(GLOBAL_CONFIG_PATH.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return data.get("models", data)
-        except Exception:
-            pass
-    return {}
+    return config_models(read_config(cwd))
 
 
 def save_config(options_dict, cwd=None, is_global=True):
-    content = {"schema": "cogitor.v1", "models": options_dict}
+    target = GLOBAL_CONFIG_PATH if is_global or not cwd else Path(cwd) / LOCAL_CONFIG_NAME
+    existing = read_config_file(target)
+    # Keep other sections (accounts); an old bare {agent: options} file has none.
+    content = {k: v for k, v in existing.items() if k not in AGENTS}
+    content.update(schema="cogitor.v1", models=options_dict)
     if is_global or not cwd:
         CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
         GLOBAL_CONFIG_PATH.write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -2130,13 +2156,10 @@ def get_available_models_catalog():
     return catalog
 
 
-def pick_models_interactive(cwd=None):
+def pick_models_interactive(cwd=None, is_global=True):
     if not sys.stdin.isatty():
-        return {
-            "codex": {"model": "o3", "effort": "high"},
-            "claude": {"model": "sonnet"},
-            "antigravity": {"model": "gemini-3.1-pro-high", "effort": "high"}
-        }
+        raise ValueError("interactive model selection needs a terminal; ask the user to run it, "
+                         "or use configure --codex-model/--claude-model/--antigravity-model")
 
     print("\n" + "=" * 68)
     print("      THE COGITORS — INTERACTIVE MODEL CONFIGURATOR (HEIMDALL)")
@@ -2206,9 +2229,10 @@ def pick_models_interactive(cwd=None):
     print(json.dumps(options, indent=2))
     print("-" * 68)
     try:
-        save_q = input("Save as default configuration (~/.cogitors/config.json)? [Y/n]: ").strip().lower()
+        target = "~/.cogitors/config.json" if is_global else LOCAL_CONFIG_NAME
+        save_q = input("Save as default configuration (%s)? [Y/n]: " % target).strip().lower()
         if save_q in ("", "y", "yes", "e", "evet"):
-            saved_path = save_config(options, is_global=True)
+            saved_path = save_config(options, cwd=cwd, is_global=is_global)
             print(f"Saved default configuration to: {saved_path}")
     except (EOFError, KeyboardInterrupt):
         pass
@@ -2373,12 +2397,12 @@ def next_action(directory, state):
     if not (location / "dispatched").exists():
         return dict(command="%s dispatch %s" % (script, run),
                     note="run in the background; write your own view from chair_prompt meanwhile")
+    if not (location / "host.json").exists():
+        return dict(command="%s record %s --file HOST_ANSWER_FILE" % (script, run),
+                    note="record your own view from chair_prompt now, even while dispatch runs")
     if not (location / "results.json").exists():
         return dict(command=None, note="dispatch is still running or crashed; wait for it. If it "
                     "crashed, the remote spend is unknown: do not retry, ask before a new paid run")
-    if not (location / "host.json").exists():
-        return dict(command="%s record %s --file HOST_ANSWER_FILE" % (script, run),
-                    note="record your own view from chair_prompt before reading peer results")
     return dict(command="%s advance %s" % (script, run), note=None)
 
 
@@ -2432,13 +2456,168 @@ def metrics_summary(decisions_dir):
 def revisit_due(decisions_dir, today=None):
     """List finished sessions whose revisit date has come, oldest first."""
     today = (today or datetime.date.today()).isoformat()
-    due = []
+    due, skipped = [], []
     for path in sorted(Path(decisions_dir).glob("*/metrics-*.json")):
-        date = read_json(path).get("revisit_date")
-        if date and date <= today:
+        try:
+            data = read_json(path)
+            date = data.get("revisit_date")
+        except (OSError, ValueError, AttributeError):
+            skipped.append(str(path))  # one damaged file must not hide the others
+            continue
+        if isinstance(date, str) and date <= today:
             slug = path.name[len("metrics-"):-len(".json")]
             due.append(dict(slug=slug, revisit_date=date, decision=str(path.parent / f"decision-{slug}.md")))
-    return dict(today=today, due=sorted(due, key=lambda d: d["revisit_date"]))
+    return dict(today=today, due=sorted(due, key=lambda d: d["revisit_date"]), skipped=skipped)
+
+
+ELDER_ALIASES = {"agy": "antigravity"}
+
+
+DEFAULT_ACCOUNT_DIRS = {"codex": Path.home() / ".codex", "claude": Path.home() / ".claude"}
+
+
+def voltron_workers(elder, cwd=None, exclude=()):
+    """Every CLI and extra account except the Elder's own session and excluded names."""
+    models = load_default_config(cwd)
+    # Accounts point a CLI at a config directory, so only the user's global file may define them.
+    accounts = read_config_file(GLOBAL_CONFIG_PATH).get("accounts", {})
+    if not isinstance(accounts, dict):
+        raise ValueError("config accounts must be an object of {name: {agent, config_dir}}")
+    # Built-in Codex and Claude run on their default account, whatever the host exports.
+    workers = [dict(name=agent, agent=agent, **({"config_dir": None} if agent in runner.CONFIG_ENV else {}))
+               for agent in AGENTS]
+    for name, account in accounts.items():
+        if name in AGENTS or name in ELDER_ALIASES or not runner.JOB_NAME.match(name) \
+                or not isinstance(account, dict) or account.get("agent") not in runner.CONFIG_ENV \
+                or not isinstance(account.get("config_dir"), str):
+            raise ValueError("account %s needs a new lowercase name, agent codex or claude, and config_dir" % name)
+        worker = dict(name=name, agent=account["agent"],
+                      config_dir=str(Path(account["config_dir"]).expanduser().resolve()))
+        worker.update({k: account[k] for k in ("model", "effort") if k in account})
+        workers.append(worker)
+    homes = {}
+    for worker in workers:
+        if worker["agent"] in runner.CONFIG_ENV:
+            home = worker["config_dir"] or str(DEFAULT_ACCOUNT_DIRS[worker["agent"]].resolve())
+            if (worker["agent"], home) in homes:
+                raise ValueError("%s and %s use the same account directory %s"
+                                 % (homes[(worker["agent"], home)], worker["name"], home))
+            homes[(worker["agent"], home)] = worker["name"]
+        defaults = models.get(worker["agent"]) if isinstance(models.get(worker["agent"]), dict) else {}
+        for key in ("model", "effort"):
+            if key not in worker and defaults.get(key):
+                worker[key] = defaults[key]
+    names = [w["name"] for w in workers]
+    elder = ELDER_ALIASES.get(elder, elder)
+    exclude = {ELDER_ALIASES.get(n, n) for n in exclude}
+    unknown = ({elder} | exclude) - set(names)
+    if unknown:
+        raise ValueError("unknown worker %s; workers are %s" % (", ".join(sorted(unknown)), ", ".join(names)))
+    chosen = [w for w in workers if w["name"] != elder and w["name"] not in exclude]
+    if not chosen:
+        raise ValueError("no workers left after the Elder and exclusions")
+    if len(chosen) > runner.MAX_JOBS:
+        raise ValueError("at most %s workers run at once; exclude some with --exclude" % runner.MAX_JOBS)
+    return chosen
+
+
+def git(cwd, *args, raw=False):
+    env = {k: v for k, v in os.environ.items() if k not in runner.GIT_OVERRIDES}
+    done = subprocess.run(["git", "-C", str(cwd)] + list(args), stdin=subprocess.DEVNULL,
+                          capture_output=True, env=env)
+    if done.returncode:
+        raise ValueError("git %s failed: %s" % (args[0], done.stderr.decode("utf-8", "replace").strip()[:300]))
+    return done.stdout if raw else done.stdout.decode("utf-8", "replace")
+
+
+def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
+    """Give one task to every worker but the Elder; edits go to one detached worktree each."""
+    cwd = Path(cwd).resolve()
+    task = read_text(task_path).strip()
+    if not task:
+        raise ValueError("task file is empty")
+    if access not in ("review", "edit"):
+        raise ValueError("access must be review or edit")
+    if access == "edit":
+        try:
+            base = git(cwd, "rev-parse", "--verify", "HEAD").strip()
+            top = Path(git(cwd, "rev-parse", "--show-toplevel").strip()).resolve()
+        except (OSError, ValueError):
+            raise ValueError("edit needs a git repository with a commit; use review instead")
+        task = ("Work only in the current directory. Do not commit, push or create branches; "
+                "leave your changes uncommitted.\n\n" + task)
+    jobs = [dict(worker, cwd=str(cwd), prompt=task, access=access, timeout_seconds=timeout)
+            for worker in voltron_workers(elder, cwd, exclude)]
+    runner.preflight(jobs)
+    directory = Path(tempfile.mkdtemp(prefix="voltron-")).resolve()
+    summary = dict(run_dir=str(directory), cwd=str(cwd), elder=ELDER_ALIASES.get(elder, elder),
+                   access=access, worktrees=[])
+    write_json(directory / "voltron.json", summary)
+    if access == "edit":
+        summary.update(base=base, repo=str(top),
+                       dirty_checkout=bool(git(cwd, "status", "--porcelain", "--untracked-files=no").strip()))
+        try:
+            for job in jobs:
+                worktree = directory / "worktrees" / job["name"]
+                git(top, "worktree", "add", "--detach", str(worktree), base)
+                summary["worktrees"].append(str(worktree))
+                write_json(directory / "voltron.json", summary)
+                job["cwd"] = str(worktree / cwd.relative_to(top))  # keep the requested subdirectory
+        except ValueError as exc:
+            voltron_clean(directory)
+            raise ValueError("worktree setup failed, nothing ran and the run was removed: %s" % exc)
+    write_json(directory / "voltron.json", summary)
+    results_dir = directory / "results"
+    results_dir.mkdir(mode=0o700)
+    results, received = run_cancellable(jobs, results_dir)
+    summary["jobs"] = []
+    for job, result in zip(jobs, results):
+        entry = {k: result.get(k) for k in ("name", "agent", "model", "effort", "status", "error",
+                                            "result_path", "duration_seconds")}
+        if access == "edit":
+            worktree = directory / "worktrees" / job["name"]
+            entry.update(worktree=str(worktree), diff_path=str(directory / (job["name"] + ".diff")))
+            try:
+                git(worktree, "add", "-A")
+                # Against the start commit, so a worker's own commit still shows in its diff.
+                diff = git(worktree, "diff", "--cached", "--binary", base, raw=True)
+                Path(entry["diff_path"]).write_bytes(diff)
+                entry["changed"] = bool(diff)
+            except (OSError, ValueError) as exc:
+                entry.update(changed=None, diff_error=str(exc)[:300])
+        summary["jobs"].append(entry)
+    if received:
+        summary["interrupted"] = received[0]
+    write_json(directory / "voltron.json", summary)
+    return summary
+
+
+def voltron_clean(run_dir):
+    """Remove one run's own worktrees and its private directory."""
+    directory = Path(run_dir).resolve()
+    if not directory.name.startswith("voltron-") or directory.parent != Path(tempfile.gettempdir()).resolve() \
+            or not (directory / "voltron.json").is_file():
+        raise ValueError("not a voltron run directory")
+    summary = read_json(directory / "voltron.json")
+    own = (directory / "worktrees").resolve()
+    errors = []
+    for worktree in summary.get("worktrees", []):
+        path = Path(worktree).resolve()
+        if path.parent != own:
+            errors.append("skipped %s: not this run's worktree" % worktree)
+            continue
+        try:
+            if path.exists():
+                git(summary.get("repo") or summary["cwd"], "worktree", "remove", "--force", str(path))
+        except ValueError as exc:
+            errors.append(str(exc))
+    if summary.get("worktrees"):
+        try:
+            git(summary.get("repo") or summary["cwd"], "worktree", "prune")
+        except ValueError as exc:
+            errors.append(str(exc))
+    shutil.rmtree(directory)
+    return dict(removed=str(directory), worktrees=len(summary.get("worktrees", [])), errors=errors)
 
 
 def doctor(cwd=None, as_json=False):
@@ -2561,7 +2740,7 @@ def configure_cmd(interactive=False, codex_model=None, codex_effort=None,
         return cfg
 
     if interactive:
-        return pick_models_interactive(cwd=cwd)
+        return pick_models_interactive(cwd=cwd, is_global=not local)
 
     cfg = load_default_config(cwd=cwd)
     if codex_model:
@@ -2656,6 +2835,16 @@ def main():
 
     met_cmd = sub.add_parser("metrics", help="summarize time and calls across local finished sessions")
     met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors-decisions")
+    vol_cmd = sub.add_parser("voltron", help="give one task to every worker except the Elder")
+    vol_cmd.add_argument("--elder", required=True, help="the host's own worker name (codex, claude, agy or an account)")
+    vol_cmd.add_argument("--file", type=Path, help="task text (required unless --check)")
+    vol_cmd.add_argument("--cwd", type=Path, default=Path.cwd())
+    vol_cmd.add_argument("--access", choices=("review", "edit"), default="review")
+    vol_cmd.add_argument("--timeout", type=float, default=900, help="seconds per worker (max 3600)")
+    vol_cmd.add_argument("--exclude", action="append", default=[], help="skip a worker by name (repeatable)")
+    vol_cmd.add_argument("--check", action="store_true", help="list workers and preflight them; no model call")
+    clean_cmd = sub.add_parser("voltron-clean", help="remove a voltron run's worktrees and files")
+    clean_cmd.add_argument("run_dir", type=Path)
     rev_cmd = sub.add_parser("revisit", help="list finished sessions whose revisit date has come")
     rev_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors-decisions")
     html_cmd = sub.add_parser("export-html", help="render or re-render interactive decision HTML")
@@ -2696,6 +2885,17 @@ def main():
             result = export_html_cmd(args.run_dir)
         elif args.command == "metrics":
             result = metrics_summary(args.dir)
+        elif args.command == "voltron":
+            if args.check:
+                workers = voltron_workers(args.elder, args.cwd, args.exclude)
+                result = dict(runner.preflight([dict(w, cwd=str(args.cwd.resolve()), prompt="check")
+                                                for w in workers]), workers=workers)
+            elif not args.file:
+                raise ValueError("voltron needs --file with the task")
+            else:
+                result = voltron(args.file, args.elder, args.cwd, args.access, args.timeout, args.exclude)
+        elif args.command == "voltron-clean":
+            result = voltron_clean(args.run_dir)
         elif args.command == "revisit":
             result = revisit_due(args.dir)
         elif args.command == "extend-timeout":
