@@ -2,7 +2,7 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
-## Unreleased
+## 0.2.1
 
 ### New
 - **/lions:** Every other model and account does the same task from its own view; the Elder merges what they find. This is how `/voltron` worked in 0.2.0.

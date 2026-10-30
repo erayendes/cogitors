@@ -2,7 +2,7 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
-## Yayınlanmamış
+## 0.2.1
 
 ### Yeni
 - **/lions:** Elder dışındaki her model ve hesap aynı görevi kendi bakış açısından yapar; Elder bulguları birleştirir. 0.2.0'daki `/voltron` böyle çalışıyordu.
