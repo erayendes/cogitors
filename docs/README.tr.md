@@ -41,7 +41,7 @@ Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde t
 
 Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protokolünü başlatır.
 
-`/voltron <görev>` aynı görevi tartışma olmadan, Elder dışındaki tüm model ve hesaplara aynı anda verir. Raporlar Elder'a gider; Elder bunları kontrol eder ve size tek bir cevap verir. Dosya değiştiren görevlerde her işçi ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
+`/voltron <görev>` Voltron'u oluşturur: Elder dışındaki her model ve hesap bir aslan olur ve aynı görevi tartışma olmadan aynı anda yapar. Raporlar Elder'a gider; Elder bunları kontrol eder ve size tek bir cevap verir. Dosya değiştiren görevlerde her aslan ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
 
 ```text
 - /antigravity Bu teknik şartnamede çelişen maddeleri bul.
@@ -109,11 +109,12 @@ Tur 5: Sentez                ▼
 
 ## Karar Çıktıları ve Dizin Yapısı
 
-Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kaydedilir:
+Her oturum, görevin dilinde, projenizin `docs/cogitors/` dizinine kaydedilir. Çalışma dosyaları oturumun `temp/` klasörüne yazılır; git bu klasörü görmez ve rapor tamamlanınca klasör silinir:
 
 ```text
 <project-root>
-  docs/cogitors-decisions/<time-stamp>-<slug>/
+  docs/cogitors/<time-stamp>-<slug>/
+  ├── temp/                  # çalışma dosyaları; oturum bitince silinir
   ├── antigravity-<slug>.md
   ├── brief-<slug>.md
   ├── claude-<slug>.md
@@ -121,11 +122,13 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors-decisions/` dizinine kay
   ├── decision-<slug>.md
   ├── decision-<slug>.json   # yalnızca --export-json ile
   ├── decisions-<slug>.html
-  └── metrics-<slug>.json    # süreler, çağrılar, bildirilen token'lar, yeniden bakış tarihi; model metni yok
+  ├── metrics-<slug>.json    # süreler, çağrılar, bildirilen token'lar, yeniden bakış tarihi; model metni yok
+  └── followup-<slug>.md     # takip sorularının cevapları, ilk sorudan sonra
 ```
 
 - **Kanıt kontrolü:** Elder'ın sentezde aktardığı alıntılar paylaşılan dosyalarda aranır ve eşleşip eşleşmediği işaretlenir. Eşleşme alıntının var olduğunu kanıtlar, iddianın doğru olduğunu değil.
 - **Metrikler:** `npx cogitors metrics` biten oturumlardaki süreyi, çağrıları ve ajan başına token'ları özetler; sağlayıcı bildirmediyse token `unknown` görünür.
+- **Takip soruları:** HTML raporun her bölümünde bir **Sor** düğmesi var. Tek bir soru sorun ya da birkaçını biriktirin, sohbete yapıştırın; Elder yeni model çağrısı yapmadan oturum kaydından cevaplar. Cevaplar sorduğunuz bölümün altında görünür; kararın kendisi hiç değişmez.
 - **Yeniden bakış:** Elder, karara yeniden bakılacak bir tarih ve kararın doğru çıkıp çıkmadığını neyin göstereceğini yazabilir; `npx cogitors revisit` tarihi gelen oturumları listeler. Her gerekçeli ayrışma, onu neyin netleştireceğini de belirtebilir.
 
 ---

@@ -314,23 +314,10 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
             raise ValueError("git command is not installed or not on PATH")
     if len(brief) + sum(len(item["text"]) for item in snapshots) > 200_000:
         raise ValueError("shared evidence exceeds 200000 characters; narrow the scope explicitly")
-    if run_dir is None:
-        directory = Path(tempfile.mkdtemp(prefix="cogitor-")).resolve()
-    else:
-        directory = Path(run_dir).absolute()
-        directory.mkdir(mode=0o700)  # Never overwrite an existing run, even an empty one.
-        directory = directory.resolve()
     session_slug = clean_slug(slug if slug else extract_title(brief))
-    language = detect_language(brief)
-    metrics = {"started_at": time.time(), "rounds": {}}
-    state = dict(schema="cogitor.v1", id=uuid.uuid4().hex, chair=chair, cwd=str(cwd),
-                 options=options, timeout_seconds=timeout, deadline=time.time() + total_timeout,
-                 brief_hash=digest(brief), sources=snapshots, participants=selected_agents,
-                 active=list(selected_agents), failures={}, round=1, rounds={}, status="active",
-                 output_dir=None, slug=session_slug, language=language, metrics=metrics,
-                 chair_model=chair_model, export_json=bool(export_json), call_budget=max_calls)
+    output = None
     if output_dir is None and not private:
-        output_dir = cwd / "docs" / "cogitors-decisions"
+        output_dir = cwd / "docs" / "cogitors"
     if output_dir is not None:
         output_root = Path(output_dir).resolve()
         output_root.mkdir(parents=True, exist_ok=True)
@@ -340,6 +327,28 @@ def init_run(brief_path, chair, cwd, options=None, sources=(), run_dir=None, evi
         while output.exists():
             output = output_root / f"{base_name}-{counter}"
             counter += 1
+    if run_dir is None and output is not None:
+        # Working files live beside the report until finish removes them; git never sees them.
+        output.mkdir(mode=0o700)
+        directory = output / "temp"
+        directory.mkdir(mode=0o700)
+        (directory / ".gitignore").write_text("*\n", encoding="utf-8")
+    elif run_dir is None:
+        directory = Path(tempfile.mkdtemp(prefix="cogitor-")).resolve()
+    else:
+        directory = Path(run_dir).absolute()
+        directory.mkdir(mode=0o700)  # Never overwrite an existing run, even an empty one.
+        directory = directory.resolve()
+    language = detect_language(brief)
+    metrics = {"started_at": time.time(), "rounds": {}}
+    state = dict(schema="cogitor.v1", id=uuid.uuid4().hex, chair=chair, cwd=str(cwd),
+                 options=options, timeout_seconds=timeout, deadline=time.time() + total_timeout,
+                 brief_hash=digest(brief), sources=snapshots, participants=selected_agents,
+                 active=list(selected_agents), failures={}, round=1, rounds={}, status="active",
+                 output_dir=None, slug=session_slug, language=language, metrics=metrics,
+                 chair_model=chair_model, export_json=bool(export_json), call_budget=max_calls,
+                 temp_run=run_dir is None and output is not None)
+    if output is not None:
         state["output_dir"] = str(output)
     advisors = [a for a in selected_agents if a != chair]
     shared = [brief] + [item["text"] for item in snapshots]
@@ -980,6 +989,10 @@ REPORT_TEXT = {
                consensus="Consensus", dissent="Reasoned Dissent", response="Response",
                uncertainties="Uncertainties & Limits", actions="Actions", not_now="Not now",
                revisit="Revisit", settle_by="Settled by",
+               ask="Ask", ask_placeholder="Your question about this part…", copy="Copy", add="Add to list",
+               questions="Questions", copy_all="Copy all", clear="Clear", copied="Copied — paste it into the chat",
+               question="Question", followups="Follow-up questions", clarifies="Clarifies",
+               challenges="Challenges the decision", general="General",
                matrix_title="Deliberation Stance Evolution Matrix", round="Round",
                matrix_hint="Each Cogitor's one-sentence stance per round. Read down a column to see how a view changed; read across a row to compare the Cogitors in the same round.",
                self_reported="self-reported by host", host="host session", cli_default="CLI default",
@@ -996,6 +1009,10 @@ REPORT_TEXT = {
                consensus="Uzlaşı", dissent="Gerekçeli Ayrışma", response="Yanıt",
                uncertainties="Belirsizlikler ve Sınırlar", actions="Aksiyonlar", not_now="Şimdilik yok",
                revisit="Yeniden bak", settle_by="Neyle netleşir",
+               ask="Sor", ask_placeholder="Bu bölümle ilgili sorunuz…", copy="Kopyala", add="Sepete ekle",
+               questions="Sorular", copy_all="Hepsini kopyala", clear="Temizle", copied="Kopyalandı, sohbete yapıştırın",
+               question="Soru", followups="Takip soruları", clarifies="Açıklama",
+               challenges="Kararı sorguluyor", general="Genel",
                matrix_title="Müzakere Duruş Evrimi Matrisi", round="Tur",
                matrix_hint="Her Cogitor'ın her turdaki tek cümlelik duruşu. Bir sütunda aşağı inerek görüşün nasıl değiştiğini, bir satırda soldan sağa okuyarak aynı turda Cogitor'ları karşılaştırın.",
                self_reported="host bildirdi", host="host oturumu", cli_default="CLI varsayılanı",
@@ -1111,7 +1128,24 @@ def usage_counts(usage):
     return (total, inp, out) if total else None
 
 
-def render_html(directory, state, answer, slug):
+FOLLOWUPS_BLOCK = re.compile(r'(<script id="cogitors-followups" type="application/json">)(.*?)(</script>)', re.S)
+
+
+def report_followups(path):
+    """Follow-up records stored inside a rendered report; [] for a missing or older report."""
+    try:
+        match = FOLLOWUPS_BLOCK.search(Path(path).read_text(encoding="utf-8"))
+    except OSError:
+        return []
+    return json.loads(match.group(2)) if match else []
+
+
+def followups_json(records):
+    # Inside <script>, "</" would end the block early.
+    return json.dumps(records, ensure_ascii=False).replace("</", "<\\/")
+
+
+def render_html(directory, state, answer, slug, followups=()):
     brief_file = directory / f"brief-{slug}.md"
     if not brief_file.exists():
         brief_file = directory / "brief.md"
@@ -1223,7 +1257,7 @@ def render_html(directory, state, answer, slug):
     revisit = answer.get("revisit")
     revisit_html = (f"<div class='not-now'><span class='muted-label'>{LUCIDE_CALENDAR} {esc(T['revisit'])}</span>"
                     f"<p><strong>{esc(revisit['date'])}</strong> — {inline_md(revisit['check'])}</p></div>") if revisit else ""
-    actions_html = (f"<aside class='actions-col'><h2 class='section-title'>{LUCIDE_LIST_TODO} {esc(T['actions'])}</h2>"
+    actions_html = (f"<aside class='actions-col' id='actions' data-ask='{esc(T['actions'])}'><h2 class='section-title'>{LUCIDE_LIST_TODO} {esc(T['actions'])}</h2>"
                     f"{''.join(action_groups)}</aside>") if action_groups else ""
 
     items = dissent_items(answer["dissent"])
@@ -1271,7 +1305,7 @@ def render_html(directory, state, answer, slug):
             anchor = f"cog-{esc(ag)}-r{r}"
             nav.append(f"<a href='#{anchor}'><span>R{r} {esc(names[i])}</span><span class='sub'>{meta}</span></a>")
             body = md_to_html(res.get("response") or res.get("error") or "")
-            cards.append(f"<section id='{anchor}' class='round-card'><div class='round-header'>"
+            cards.append(f"<section id='{anchor}' class='round-card' data-ask='{esc(ag)} · {esc(T['round'])} {r}'><div class='round-header'>"
                          f"<div class='round-title'><span class='sub'>{esc(T['round'])} {r}</span>{esc(names[i])}</div>"
                          f"<div class='round-meta'><span class='mono sub'>{meta}</span>{badge}</div></div>"
                          f"<div class='round-body'>{body}</div></section>")
@@ -1718,6 +1752,26 @@ def render_html(directory, state, answer, slug):
       border-top: 1px dashed var(--border);
     }}
 
+    /* Follow-up questions */
+    .ask-btn {{ margin-left: auto; font: inherit; font-size: var(--fs-micro); color: var(--fg-secondary); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 2px 10px; cursor: pointer; }}
+    .ask-btn:hover {{ background: var(--bg-hover); color: var(--fg); }}
+    .ask-box {{ margin: var(--sp-2) var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); display: grid; gap: var(--sp-2); }}
+    .ask-box textarea {{ width: 100%; min-height: 72px; box-sizing: border-box; font: inherit; font-size: var(--fs-body); color: var(--fg); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--r-sm); padding: var(--sp-2); resize: vertical; }}
+    .ask-quote {{ font-size: var(--fs-ui); color: var(--fg-muted); border-left: 3px solid var(--border-strong); padding-left: var(--sp-2); }}
+    .ask-actions {{ display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }}
+    .ask-actions button, .basket button {{ font: inherit; font-size: var(--fs-ui); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--bg-subtle); color: var(--fg); padding: 4px 12px; cursor: pointer; }}
+    .ask-actions button.primary, .basket button.primary {{ background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }}
+    .ask-note {{ font-size: var(--fs-micro); color: var(--fg-muted); }}
+    .basket {{ position: fixed; right: 16px; bottom: 16px; width: min(360px, calc(100vw - 32px)); max-height: 50vh; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: var(--sp-3); display: grid; gap: var(--sp-2); z-index: 20; }}
+    .basket ol {{ margin: 0; padding-left: 20px; font-size: var(--fs-ui); }}
+    .basket .muted-label {{ font-weight: 600; }}
+    .followup-card {{ margin: var(--sp-2) var(--sp-3) var(--sp-3); padding: var(--sp-3); border: 1px dashed var(--border-strong); border-radius: var(--r-md); background: var(--bg-subtle); }}
+    .followup-card .fu-head {{ display: flex; gap: var(--sp-2); align-items: baseline; flex-wrap: wrap; font-size: var(--fs-micro); color: var(--fg-muted); }}
+    .followup-card .fu-q {{ font-weight: 600; margin: var(--sp-1) 0; }}
+    .fu-badge {{ border-radius: var(--r-pill); padding: 0 8px; border: 1px solid var(--border); }}
+    .fu-badge.challenges {{ color: var(--red); border-color: var(--red-border); background: var(--red-bg); }}
+    .followup-general:not(:empty)::before {{ content: attr(data-label); display: block; font-size: var(--fs-section); font-weight: 600; margin: var(--sp-4) 0 var(--sp-2); }}
+
     /* Table */
     table {{ width: 100%; border-collapse: collapse; margin-top: var(--sp-2); font-size: var(--fs-body); }}
     th, td {{ padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }}
@@ -1900,25 +1954,26 @@ def render_html(directory, state, answer, slug):
       <div class="decisions">
         <div>
           <h2 class="section-title">{LUCIDE_CHECK_CIRCLE} {esc(T['decisions'])}</h2>
-          <div class="card callout-green">
+          <div class="card callout-green" id="consensus" data-ask="{esc(T['consensus'])}">
             <div class="card-header"><div class="card-title">{LUCIDE_HANDSHAKE} {esc(T['consensus'])}</div></div>
             <div class="card-body">{md_to_html(answer_body)}<div class="agreement">{md_to_html(answer['agreement'])}</div>{not_now_html}{revisit_html}</div>
           </div>
-          <div class="card callout-red">
+          <div class="card callout-red" id="dissent" data-ask="{esc(T['dissent'])}">
             <div class="card-header"><div class="card-title">{LUCIDE_SPLIT} {esc(T['dissent'])}</div></div>
             <div class="card-body">{dissent_html}</div>
           </div>
-          <div class="card callout-amber">
+          <div class="card callout-amber" id="uncertainties" data-ask="{esc(T['uncertainties'])}">
             <div class="card-header"><div class="card-title">{LUCIDE_HELP} {esc(T['uncertainties'])}</div></div>
             <div class="card-body">{md_to_html(answer['uncertainties'])}</div>
           </div>
         </div>
         {actions_html}
       </div>
+      <div id="general" class="followup-general" data-label="{esc(T['followups'])}"></div>
     </div>
 
     <div id="page-matrix" data-group="page" hidden>
-      <div class="card">
+      <div class="card" id="matrix" data-ask="{esc(T['matrix_title'])}">
         <div class="card-header"><div class="card-title">{LUCIDE_SCALE} {esc(T['matrix_title'])}</div></div>
         <p class="note">{esc(T['matrix_hint'])}</p>
         <table class="matrix-table">
@@ -1931,13 +1986,102 @@ def render_html(directory, state, answer, slug):
   </div>
   </main>
 
+  <script id="cogitors-followups" type="application/json">{followups_json(list(followups))}</script>
   <script>
+    const ASK = {{
+      folder: {json.dumps(str(Path(state['output_dir']) if state.get('output_dir') else directory))},
+      key: 'cogitors-questions-' + {json.dumps(slug)},
+      t: {json.dumps({k: T[k] for k in ('ask', 'ask_placeholder', 'copy', 'add', 'questions', 'copy_all', 'clear', 'copied', 'question', 'clarifies', 'challenges', 'general')}, ensure_ascii=False)},
+    }};
     function show(group, id, btn) {{
       document.querySelectorAll('[data-group="' + group + '"]').forEach(el => el.hidden = el.id !== id);
       document.querySelector('.scroll').scrollTop = 0;
       btn.parentElement.querySelectorAll('button').forEach(b =>
         b.classList.toggle(b.classList.contains('tab-link') ? 'active' : 'on', b === btn));
     }}
+    // Follow-up questions: written here, pasted into the chat, answered by the Elder.
+    // The list survives a reload through localStorage; without storage it lives as long as the page.
+    let memoryList = [];
+    function loadList() {{
+      try {{ const saved = localStorage.getItem(ASK.key); if (saved !== null) return JSON.parse(saved) || []; }} catch (e) {{}}
+      return memoryList;
+    }}
+    function saveList(list) {{ memoryList = list; try {{ localStorage.setItem(ASK.key, JSON.stringify(list)); }} catch (e) {{}} }}
+    function oneLine(text) {{ return text.replace(/\\s+/g, ' ').trim(); }}
+    function entryText(q, n) {{
+      const head = (n ? n + '. ' : '') + '[' + q.section + ': ' + q.label + ']' + (q.quote ? ' "' + q.quote + '"' : '');
+      return head + '\\n' + (n ? '   ' : '') + ASK.t.question + ': ' + q.question;
+    }}
+    function copyText(text, note) {{
+      const done = () => {{ if (note) {{ note.textContent = ASK.t.copied; setTimeout(() => note.textContent = '', 4000); }} }};
+      const fallback = () => {{
+        const area = document.createElement('textarea'); area.value = text; document.body.appendChild(area);
+        area.select(); try {{ document.execCommand('copy'); }} catch (e) {{}} area.remove(); done();
+      }};
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+    }}
+    function command(entries) {{
+      return '/cogitors followup ' + ASK.folder + '\\n' + entries.map((q, i) => entryText(q, entries.length > 1 ? i + 1 : 0)).join('\\n');
+    }}
+    function renderBasket() {{
+      const list = loadList();
+      let box = document.getElementById('ask-basket');
+      if (!list.length) {{ if (box) box.remove(); return; }}
+      if (!box) {{ box = document.createElement('div'); box.id = 'ask-basket'; box.className = 'basket'; document.body.appendChild(box); }}
+      box.innerHTML = '';
+      const title = document.createElement('span'); title.className = 'muted-label'; title.textContent = ASK.t.questions + ' (' + list.length + ')';
+      const ol = document.createElement('ol');
+      list.forEach(q => {{ const li = document.createElement('li'); li.textContent = q.label + ': ' + q.question; ol.appendChild(li); }});
+      const row = document.createElement('div'); row.className = 'ask-actions';
+      const note = document.createElement('span'); note.className = 'ask-note';
+      const all = document.createElement('button'); all.className = 'primary'; all.textContent = ASK.t.copy_all;
+      all.onclick = () => copyText(command(list), note);
+      const clear = document.createElement('button'); clear.textContent = ASK.t.clear;
+      clear.onclick = () => {{ saveList([]); renderBasket(); }};
+      row.append(all, clear, note); box.append(title, ol, row);
+    }}
+    function openAsk(section, button) {{
+      const old = section.querySelector(':scope > .ask-box');
+      if (old) {{ old.remove(); return; }}
+      const sel = window.getSelection();
+      const quote = sel && sel.rangeCount && section.contains(sel.anchorNode) ? oneLine(sel.toString()).slice(0, 300) : '';
+      const box = document.createElement('div'); box.className = 'ask-box';
+      if (quote) {{ const qt = document.createElement('div'); qt.className = 'ask-quote'; qt.textContent = '"' + quote + '"'; box.appendChild(qt); }}
+      const area = document.createElement('textarea'); area.placeholder = ASK.t.ask_placeholder;
+      const row = document.createElement('div'); row.className = 'ask-actions';
+      const note = document.createElement('span'); note.className = 'ask-note';
+      const entry = () => ({{ section: section.id, label: section.dataset.ask, quote: quote, question: area.value.trim() }});
+      const copy = document.createElement('button'); copy.className = 'primary'; copy.textContent = ASK.t.copy;
+      copy.onclick = () => {{ if (area.value.trim()) copyText(command([entry()]), note); }};
+      const add = document.createElement('button'); add.textContent = ASK.t.add;
+      add.onclick = () => {{ if (!area.value.trim()) return; saveList(loadList().concat([entry()])); renderBasket(); box.remove(); }};
+      row.append(copy, add, note); box.append(area, row);
+      button.closest('.card-header, .round-header, .section-title').after(box); area.focus();
+    }}
+    function renderFollowups() {{
+      JSON.parse(document.getElementById('cogitors-followups').textContent || '[]').forEach(f => {{
+        const target = document.getElementById(f.section) || document.getElementById('general');
+        const card = document.createElement('div'); card.className = 'followup-card';
+        const head = document.createElement('div'); head.className = 'fu-head';
+        const num = document.createElement('span'); num.textContent = '#' + f.id + ' · ' + f.date;
+        const badge = document.createElement('span'); badge.className = 'fu-badge ' + f.effect; badge.textContent = ASK.t[f.effect] || f.effect;
+        head.append(num, badge);
+        const q = document.createElement('div'); q.className = 'fu-q'; q.textContent = (f.quote ? '"' + f.quote + '" — ' : '') + f.question;
+        const a = document.createElement('div'); a.innerHTML = f.answer_html;  // rendered and escaped by cogitor.py
+        card.append(head, q, a);
+        const anchor = target.querySelector(':scope > .card-body, :scope > .round-body');
+        if (anchor) anchor.after(card); else target.appendChild(card);
+      }});
+    }}
+    document.querySelectorAll('[data-ask]').forEach(section => {{
+      const header = section.querySelector('.card-header, .round-header, .section-title');
+      if (!header) return;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'ask-btn'; button.textContent = ASK.t.ask;
+      button.onclick = () => openAsk(section, button);
+      header.appendChild(button);
+    }});
+    renderFollowups();
+    renderBasket();
 
   </script>
 </body>
@@ -2033,7 +2177,12 @@ def finish(run_dir, answer_path):
     write_text_atomic(directory / final_html, html_content)
     write_json(directory / "state.json", state)
     export_outputs(directory, state, [brief_file] + [f"{agent}-{slug}.md" for agent in participants] + exported)
-    return status(directory)
+    result = status(directory)
+    # The report folder now holds everything the user keeps; a failed export keeps temp as the only copy.
+    if state.get("temp_run") and not state.get("export_error") and directory == Path(state["output_dir"]) / "temp":
+        shutil.rmtree(directory)
+        result.update(run_dir=None, synthesis=None, next_action=dict(command=None, note="run is complete"))
+    return result
 
 
 CONFIG_DIR = Path.home() / ".cogitors"
@@ -2476,7 +2625,7 @@ ELDER_ALIASES = {"agy": "antigravity"}
 DEFAULT_ACCOUNT_DIRS = {"codex": Path.home() / ".codex", "claude": Path.home() / ".claude"}
 
 
-def voltron_workers(elder, cwd=None, exclude=()):
+def voltron_lions(elder, cwd=None, exclude=()):
     """Every CLI and extra account except the Elder's own session and excluded names."""
     models = load_default_config(cwd)
     # Accounts point a CLI at a config directory, so only the user's global file may define them.
@@ -2484,40 +2633,40 @@ def voltron_workers(elder, cwd=None, exclude=()):
     if not isinstance(accounts, dict):
         raise ValueError("config accounts must be an object of {name: {agent, config_dir}}")
     # Built-in Codex and Claude run on their default account, whatever the host exports.
-    workers = [dict(name=agent, agent=agent, **({"config_dir": None} if agent in runner.CONFIG_ENV else {}))
+    lions = [dict(name=agent, agent=agent, **({"config_dir": None} if agent in runner.CONFIG_ENV else {}))
                for agent in AGENTS]
     for name, account in accounts.items():
         if name in AGENTS or name in ELDER_ALIASES or not runner.JOB_NAME.match(name) \
                 or not isinstance(account, dict) or account.get("agent") not in runner.CONFIG_ENV \
                 or not isinstance(account.get("config_dir"), str):
             raise ValueError("account %s needs a new lowercase name, agent codex or claude, and config_dir" % name)
-        worker = dict(name=name, agent=account["agent"],
+        lion = dict(name=name, agent=account["agent"],
                       config_dir=str(Path(account["config_dir"]).expanduser().resolve()))
-        worker.update({k: account[k] for k in ("model", "effort") if k in account})
-        workers.append(worker)
+        lion.update({k: account[k] for k in ("model", "effort") if k in account})
+        lions.append(lion)
     homes = {}
-    for worker in workers:
-        if worker["agent"] in runner.CONFIG_ENV:
-            home = worker["config_dir"] or str(DEFAULT_ACCOUNT_DIRS[worker["agent"]].resolve())
-            if (worker["agent"], home) in homes:
+    for lion in lions:
+        if lion["agent"] in runner.CONFIG_ENV:
+            home = lion["config_dir"] or str(DEFAULT_ACCOUNT_DIRS[lion["agent"]].resolve())
+            if (lion["agent"], home) in homes:
                 raise ValueError("%s and %s use the same account directory %s"
-                                 % (homes[(worker["agent"], home)], worker["name"], home))
-            homes[(worker["agent"], home)] = worker["name"]
-        defaults = models.get(worker["agent"]) if isinstance(models.get(worker["agent"]), dict) else {}
+                                 % (homes[(lion["agent"], home)], lion["name"], home))
+            homes[(lion["agent"], home)] = lion["name"]
+        defaults = models.get(lion["agent"]) if isinstance(models.get(lion["agent"]), dict) else {}
         for key in ("model", "effort"):
-            if key not in worker and defaults.get(key):
-                worker[key] = defaults[key]
-    names = [w["name"] for w in workers]
+            if key not in lion and defaults.get(key):
+                lion[key] = defaults[key]
+    names = [w["name"] for w in lions]
     elder = ELDER_ALIASES.get(elder, elder)
     exclude = {ELDER_ALIASES.get(n, n) for n in exclude}
     unknown = ({elder} | exclude) - set(names)
     if unknown:
-        raise ValueError("unknown worker %s; workers are %s" % (", ".join(sorted(unknown)), ", ".join(names)))
-    chosen = [w for w in workers if w["name"] != elder and w["name"] not in exclude]
+        raise ValueError("unknown lion %s; lions are %s" % (", ".join(sorted(unknown)), ", ".join(names)))
+    chosen = [w for w in lions if w["name"] != elder and w["name"] not in exclude]
     if not chosen:
-        raise ValueError("no workers left after the Elder and exclusions")
+        raise ValueError("no lions left after the Elder and exclusions")
     if len(chosen) > runner.MAX_JOBS:
-        raise ValueError("at most %s workers run at once; exclude some with --exclude" % runner.MAX_JOBS)
+        raise ValueError("at most %s lions run at once; exclude some with --exclude" % runner.MAX_JOBS)
     return chosen
 
 
@@ -2531,7 +2680,7 @@ def git(cwd, *args, raw=False):
 
 
 def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
-    """Give one task to every worker but the Elder; edits go to one detached worktree each."""
+    """Give one task to every lion but the Elder; edits go to one detached worktree each."""
     cwd = Path(cwd).resolve()
     task = read_text(task_path).strip()
     if not task:
@@ -2546,8 +2695,8 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
             raise ValueError("edit needs a git repository with a commit; use review instead")
         task = ("Work only in the current directory. Do not commit, push or create branches; "
                 "leave your changes uncommitted.\n\n" + task)
-    jobs = [dict(worker, cwd=str(cwd), prompt=task, access=access, timeout_seconds=timeout)
-            for worker in voltron_workers(elder, cwd, exclude)]
+    jobs = [dict(lion, cwd=str(cwd), prompt=task, access=access, timeout_seconds=timeout)
+            for lion in voltron_lions(elder, cwd, exclude)]
     runner.preflight(jobs)
     directory = Path(tempfile.mkdtemp(prefix="voltron-")).resolve()
     summary = dict(run_dir=str(directory), cwd=str(cwd), elder=ELDER_ALIASES.get(elder, elder),
@@ -2579,7 +2728,7 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
             entry.update(worktree=str(worktree), diff_path=str(directory / (job["name"] + ".diff")))
             try:
                 git(worktree, "add", "-A")
-                # Against the start commit, so a worker's own commit still shows in its diff.
+                # Against the start commit, so a lion's own commit still shows in its diff.
                 diff = git(worktree, "diff", "--cached", "--binary", base, raw=True)
                 Path(entry["diff_path"]).write_bytes(diff)
                 entry["changed"] = bool(diff)
@@ -2649,6 +2798,62 @@ def doctor(cwd=None, as_json=False):
     return summary
 
 
+FOLLOWUP_EFFECTS = ("clarifies", "challenges")
+
+
+def followup(folder, qa_path):
+    """Add the Elder's answers to a finished report; the decision text stays as it was."""
+    folder = Path(folder).resolve()
+    reports = sorted(folder.glob("decisions-*.html"))
+    if len(reports) != 1:
+        raise ValueError("folder must hold exactly one decisions-<slug>.html report: " + str(folder))
+    report = reports[0]
+    slug = report.name[len("decisions-"):-len(".html")]
+    log = folder / f"followup-{slug}.md"
+    if report.is_symlink() or log.is_symlink():
+        raise ValueError("refusing to write through a symlink in " + str(folder))
+    entries = read_json(qa_path)
+    entries = [entries] if isinstance(entries, dict) else entries
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("follow-up file must hold one {section, question, answer, effect} object or a list of them")
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) - {"section", "quote", "question", "answer", "effect", "basis"} \
+                or not all(isinstance(entry.get(k), str) and entry[k].strip() for k in ("question", "answer")) \
+                or entry.get("effect") not in FOLLOWUP_EFFECTS \
+                or not all(isinstance(entry.get(k, ""), str) for k in ("section", "quote", "basis")):
+            raise ValueError("each follow-up needs question, answer and effect (clarifies or challenges); "
+                             "optional section, quote, basis")
+    text = read_text(report)
+    match = FOLLOWUPS_BLOCK.search(text)
+    if not match:
+        raise ValueError("this report predates follow-ups; re-render it with export-html RUN_DIR first")
+    records = json.loads(match.group(2))
+    lang_match = re.search(r'<html lang="(\w+)"', text)
+    T = REPORT_TEXT.get(lang_match.group(1) if lang_match else "en", REPORT_TEXT["en"])
+    today = datetime.date.today().isoformat()
+    added, lines = [], []
+    for entry in entries:
+        record = dict(id=len(records) + 1, date=today, section=entry.get("section") or "general",
+                      quote=entry.get("quote", ""), question=entry["question"].strip(),
+                      answer=entry["answer"].strip(), effect=entry["effect"], basis=entry.get("basis", ""))
+        record["answer_html"] = md_to_html(record["answer"])
+        records.append(record)
+        added.append(record)
+        lines += ["## #%s · %s · %s" % (record["id"], record["date"], T[record["effect"]]), "",
+                  "**%s:** %s" % (T["question"], record["question"])]
+        if record["quote"]:
+            lines += ["", "> " + record["quote"]]
+        lines += ["", record["answer"]]
+        if record["basis"]:
+            lines += ["", "*" + record["basis"] + "*"]
+        lines.append("")
+    write_text_atomic(report, text[:match.start(2)] + followups_json(records) + text[match.end(2):])
+    head = "" if log.exists() else "# %s — %s\n\n" % (T["followups"], slug)
+    write_text_atomic(log, (read_text(log) if log.exists() else head) + "\n".join(lines) + "\n")
+    return dict(folder=str(folder), report=str(report), log=str(log), added=[r["id"] for r in added],
+                total=len(records), challenges=[r["id"] for r in added if r["effect"] == "challenges"])
+
+
 def export_html_cmd(run_dir):
     directory, state = load_state(run_dir)
     slug = state.get("slug", "session")
@@ -2663,7 +2868,9 @@ def export_html_cmd(run_dir):
             raise ValueError("run has not finished synthesis; no final decision to render")
     answer = read_json(answer_file)
     final_html = f"decisions-{slug}.html"
-    content = render_html(directory, state, answer, slug)
+    copies = [directory / final_html] + ([Path(state["output_dir"]) / final_html] if state.get("output_dir") else [])
+    kept = max((report_followups(path) for path in copies), key=len)
+    content = render_html(directory, state, answer, slug, kept)
     write_text_atomic(directory / final_html, content)
     participants = state.get("participants", AGENTS)
     brief_file = f"brief-{slug}.md"
@@ -2834,19 +3041,22 @@ def main():
     doc.add_argument("--cwd", type=Path, default=Path.cwd())
 
     met_cmd = sub.add_parser("metrics", help="summarize time and calls across local finished sessions")
-    met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors-decisions")
-    vol_cmd = sub.add_parser("voltron", help="give one task to every worker except the Elder")
-    vol_cmd.add_argument("--elder", required=True, help="the host's own worker name (codex, claude, agy or an account)")
+    met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors")
+    vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Elder")
+    vol_cmd.add_argument("--elder", required=True, help="the host's own lion name (codex, claude, agy or an account)")
     vol_cmd.add_argument("--file", type=Path, help="task text (required unless --check)")
     vol_cmd.add_argument("--cwd", type=Path, default=Path.cwd())
     vol_cmd.add_argument("--access", choices=("review", "edit"), default="review")
-    vol_cmd.add_argument("--timeout", type=float, default=900, help="seconds per worker (max 3600)")
-    vol_cmd.add_argument("--exclude", action="append", default=[], help="skip a worker by name (repeatable)")
-    vol_cmd.add_argument("--check", action="store_true", help="list workers and preflight them; no model call")
+    vol_cmd.add_argument("--timeout", type=float, default=900, help="seconds per lion (max 3600)")
+    vol_cmd.add_argument("--exclude", action="append", default=[], help="skip a lion by name (repeatable)")
+    vol_cmd.add_argument("--check", action="store_true", help="list lions and preflight them; no model call")
     clean_cmd = sub.add_parser("voltron-clean", help="remove a voltron run's worktrees and files")
     clean_cmd.add_argument("run_dir", type=Path)
+    fu_cmd = sub.add_parser("followup", help="add the Elder's answers to a finished report's follow-up questions")
+    fu_cmd.add_argument("folder", type=Path, help="the folder holding decisions-<slug>.html")
+    fu_cmd.add_argument("--file", type=Path, required=True, help="JSON: one {section, question, answer, effect} or a list")
     rev_cmd = sub.add_parser("revisit", help="list finished sessions whose revisit date has come")
-    rev_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors-decisions")
+    rev_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors")
     html_cmd = sub.add_parser("export-html", help="render or re-render interactive decision HTML")
     html_cmd.add_argument("run_dir", type=Path)
 
@@ -2887,15 +3097,17 @@ def main():
             result = metrics_summary(args.dir)
         elif args.command == "voltron":
             if args.check:
-                workers = voltron_workers(args.elder, args.cwd, args.exclude)
+                lions = voltron_lions(args.elder, args.cwd, args.exclude)
                 result = dict(runner.preflight([dict(w, cwd=str(args.cwd.resolve()), prompt="check")
-                                                for w in workers]), workers=workers)
+                                                for w in lions]), lions=lions)
             elif not args.file:
                 raise ValueError("voltron needs --file with the task")
             else:
                 result = voltron(args.file, args.elder, args.cwd, args.access, args.timeout, args.exclude)
         elif args.command == "voltron-clean":
             result = voltron_clean(args.run_dir)
+        elif args.command == "followup":
+            result = followup(args.folder, args.file)
         elif args.command == "revisit":
             result = revisit_due(args.dir)
         elif args.command == "extend-timeout":

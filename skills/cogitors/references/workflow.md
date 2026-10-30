@@ -17,9 +17,9 @@ python3 /actual/cogitors/scripts/cogitor.py init /path/brief.md \
 
 Pass `--chair-model <model>` with the host's own model as it knows it; the report marks it self-reported, since the runner cannot verify it. Advisors begin every response with a `Stance:` line (`Duruş:` for a Turkish brief), which the report's stance matrix shows; start your own record with the same line.
 
-The returned `run_dir` is a fresh private temporary directory. `--run-dir /new/directory` selects a persistent destination but refuses any existing directory. Paths are examples, not personal defaults. Immediately tell the user the returned `output_dir`.
+The returned `run_dir` is the session folder's `temp/`: private, git-ignored through its own `.gitignore`, and deleted by `finish` once the report is exported (kept if the export fails, since it is then the only copy). With `--private` it is a system temporary directory instead. `--run-dir /new/directory` selects a persistent destination, never deleted, and refuses any existing directory. Paths are examples, not personal defaults. Immediately tell the user the returned `output_dir`.
 
-By default, `init` targets a unique session subfolder named `<timestamp>-<slug>` under `CWD/docs/cogitors-decisions/`. Optional `--slug my-topic` specifies the slug; otherwise it is automatically extracted from the first heading or line of the brief. The folder is created on the first completed round, containing only `brief-<slug>.md`, `codex-<slug>.md`, `claude-<slug>.md`, `antigravity-<slug>.md` and, when finished, `decision-<slug>.md`, `decisions-<slug>.html` and `metrics-<slug>.json` (durations, calls and any reported usage; no model text). `metrics [--dir DIR]` summarizes those files across finished sessions in `DIR` (default `CWD/docs/cogitors-decisions`): average session and round time, per-agent call time, and tokens per agent or `unknown` when a provider reported none. Pass `--export-json` to also export the structured synthesis as `decision-<slug>.json`; it cannot combine with `--private`. Use `--output-dir` for another destination or `--private` when the user requests no exported files. These are model outputs, not automatically redacted public documents; review before committing. Jobs, raw logs, credentials, and state are never exported. An export failure retains private results and reports the problem; do not repeat model calls to repair file delivery.
+By default, `init` creates a unique session folder named `<timestamp>-<slug>` under `CWD/docs/cogitors/`. Optional `--slug my-topic` specifies the slug; otherwise it is automatically extracted from the first heading or line of the brief. Besides `temp/`, it receives `brief-<slug>.md`, `codex-<slug>.md`, `claude-<slug>.md`, `antigravity-<slug>.md` and, when finished, `decision-<slug>.md`, `decisions-<slug>.html` and `metrics-<slug>.json` (durations, calls and any reported usage; no model text). `metrics [--dir DIR]` summarizes those files across finished sessions in `DIR` (default `CWD/docs/cogitors`): average session and round time, per-agent call time, and tokens per agent or `unknown` when a provider reported none. Pass `--export-json` to also export the structured synthesis as `decision-<slug>.json`; it cannot combine with `--private`. Use `--output-dir` for another destination or `--private` when the user requests no exported files. These are model outputs, not automatically redacted public documents; review before committing. Jobs, raw logs, credentials, and state are never exported. An export failure retains private results and reports the problem; do not repeat model calls to repair file delivery.
 
 Defaults: 180 seconds per external invocation and a 1800-second run deadline. `--timeout` (up to 3600) and `--total-timeout` honor an explicitly agreed time budget. The run deadline counts wall-clock time from `init`, including the approval wait and the chair's own work; set it generously when that work is long. It prevents starting remote work after expiry and caps remaining dispatch time; it cannot terminate the current host's own thinking. Once dispatch reports `run deadline exhausted`, the run cannot continue: report it and ask before a new paid run. The host also respects the user's overall deadline.
 
@@ -94,6 +94,16 @@ python3 /actual/cogitors/scripts/cogitor.py finish /path/run --file /path/final.
 
 `decision-<slug>.md` adds actual participation coverage, a comparison matrix, and timing metrics. A standalone `decisions-<slug>.html` report is also exported. Present one coherent output in the user's language, retaining the required distinctions, and provide the absolute `final` path returned by `finish`.
 
+## 4. Follow-up questions
+
+After `finish`, the HTML report's **Ask** buttons copy a `/cogitors followup <folder>` message to paste into the chat, one question at a time or a whole list. The folder is the export folder, or the run directory for a private run. Record the Elder's answers with:
+
+```sh
+python3 /actual/cogitors/scripts/cogitor.py followup /path/folder --file /path/answers.json
+```
+
+`answers.json` is one object or a list: `question`, `answer` (markdown) and `effect` (`clarifies` or `challenges`) are required; `section` (the id from the message, default `general`), `quote` and `basis` (the files and rounds the answer rests on) are optional. The command calls no model, numbers and dates each answer, stores it inside the report and appends it to `followup-<slug>.md`. It refuses a report rendered before this feature. `export-html RUN_DIR` re-renders a report and keeps answers already added, but only while its run directory exists (a `--run-dir` or `--private` run); a default run's `temp/` is gone after `finish`.
+
 ## Artifacts and exits
 
 - `state.json`: settings, shared evidence, round results, raw provider usage when available.
@@ -101,6 +111,7 @@ python3 /actual/cogitors/scripts/cogitor.py finish /path/run --file /path/final.
 - `round-N/`: chair prompt, immutable chair submission, prepared `jobs.json`, deadline-capped `dispatched-jobs.json`, dispatch marker, normalized results and private CLI logs. Prepared requests are hashed in state; changed jobs are rejected before execution.
 - `synthesis.md`, `decision.json`, `decision-<slug>.md`, `decisions-<slug>.html`, `metrics-<slug>.json`: synthesis input, final decision outputs and timing metrics.
 - `calls.log`: one line per claimed model call, the source of `status.calls_spent`.
+- `followup-<slug>.md`: the Elder's answers to follow-up questions, in the folder the `followup` command was given.
 - `output_dir` in status: optional project delivery folder; `export_error` reports delivery failures without discarding private results.
 
 Exit 0 means the operation succeeded; 1 reports failed dispatch jobs, a paused or blocked panel, an export error or a partial final result; 2 is an invalid operation, input or file error (for example a second `record`); 130/143 reports SIGINT/SIGTERM during dispatch. A partial final artifact is retained even with exit 1. Missing usage is unknown, not zero. Usage schemas and cached/reasoning counters differ; do not sum overlapping fields or claim a subscription dollar cost.

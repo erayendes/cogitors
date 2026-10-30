@@ -41,7 +41,7 @@ Every model receives the whole task. Over four rounds they analyze independently
 
 `/cogitors <task>` is different: it starts the five-round deliberation protocol with all three agents.
 
-`/voltron <task>` gives the same task to every other model and account at once, with no debate. Their reports go to the Elder, which checks them and gives you one answer. Tasks that change files run in a separate git worktree per worker. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
+`/voltron <task>` forms Voltron: every other model and account becomes a lion and does the same task at once, with no debate. Their reports go to the Elder, which checks them and gives you one answer. Tasks that change files run in a separate git worktree per lion. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
 
 ```text
 - /antigravity Find the contradicting clauses in this technical spec.
@@ -109,11 +109,12 @@ Round 5: Synthesis         ▼
 
 ## Decision Outputs and Directory Layout
 
-Every session is saved in the task's language under your project's `docs/cogitors-decisions/` directory:
+Every session is saved in the task's language under your project's `docs/cogitors/` directory. Working files go to the session's `temp/` folder, which git ignores and which is deleted once the report is finished:
 
 ```text
 <project-root>
-  docs/cogitors-decisions/<time-stamp>-<slug>/
+  docs/cogitors/<time-stamp>-<slug>/
+  ├── temp/                  # working files; removed when the session finishes
   ├── antigravity-<slug>.md
   ├── brief-<slug>.md
   ├── claude-<slug>.md
@@ -121,11 +122,13 @@ Every session is saved in the task's language under your project's `docs/cogitor
   ├── decision-<slug>.md
   ├── decision-<slug>.json   # only with --export-json
   ├── decisions-<slug>.html
-  └── metrics-<slug>.json    # durations, calls, reported tokens, revisit date; no model text
+  ├── metrics-<slug>.json    # durations, calls, reported tokens, revisit date; no model text
+  └── followup-<slug>.md     # answers to follow-up questions, after the first one
 ```
 
 - **Evidence check:** Quotes the Elder cites in the synthesis are checked against the shared files and marked as matched or not. A match proves the quote exists, not that the claim is right.
 - **Metrics:** `npx cogitors metrics` summarizes time, calls and per-agent tokens across finished sessions; tokens show as `unknown` when a provider reported none.
+- **Follow-up questions:** Every part of the HTML report has an **Ask** button. Ask one question or collect several, paste them into the chat, and the Elder answers from the session record without new model calls. Answers appear under the part you asked about; the decision itself never changes.
 - **Revisit:** The Elder can set a revisit date and what would show the decision was right; `npx cogitors revisit` lists the sessions whose date has come. Each reasoned dissent can also name the evidence that would settle it.
 
 ---

@@ -81,7 +81,7 @@ class CogitorCheck(unittest.TestCase):
 
     def test_output_defaults_to_project_docs_with_an_explicit_private_opt_out(self):
         default = Path(self.engine.status(self.run_dir)["output_dir"])
-        self.assertEqual(default.parent, (self.root / "docs" / "cogitors-decisions").resolve())
+        self.assertEqual(default.parent, (self.root / "docs" / "cogitors").resolve())
         self.assertFalse(default.exists())
         self.one_round()
         self.assertEqual(default.stat().st_mode & 0o777, 0o700)
@@ -90,7 +90,7 @@ class CogitorCheck(unittest.TestCase):
             self.brief, "codex", self.root, run_dir=self.root / "private-run", private=True)
         self.assertIsNone(self.engine.status(private)["output_dir"])
 
-        output_root = self.root / "project" / "docs" / "cogitors-decisions"
+        output_root = self.root / "project" / "docs" / "cogitors"
         output_root.mkdir(parents=True)
         existing = output_root / "notes.md"
         existing.write_text("Keep this existing project file.")
@@ -125,7 +125,7 @@ class CogitorCheck(unittest.TestCase):
     def test_only_advisor_histories_and_final_decision_are_exported(self):
         self.run_dir = self.engine.init_run(
             self.brief, "codex", self.root, sources=[self.source],
-            run_dir=self.root / "delivery-run", output_dir=self.root / "docs" / "cogitors-decisions")
+            run_dir=self.root / "delivery-run", output_dir=self.root / "docs" / "cogitors")
         output = Path(self.engine.status(self.run_dir)["output_dir"])
         advisor_files = {f"{agent}-{self.slug}.md" for agent in ("codex", "claude", "antigravity")} | {f"brief-{self.slug}.md"}
         for stage in range(1, 5):
@@ -829,7 +829,7 @@ print(json.dumps(data))
         self.assertTrue(result["due"][0]["decision"].endswith("2026-due/decision-due.md"))
         self.assertEqual(self.engine.revisit_due(self.root / "nowhere")["due"], [])
 
-    def test_voltron_runs_every_worker_but_the_elder_in_its_own_worktree(self):
+    def test_voltron_runs_every_lion_but_the_elder_in_its_own_worktree(self):
         repo = self.root / "repo"
         repo.mkdir()
         git = lambda *args: subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t"]
@@ -843,22 +843,22 @@ print(json.dumps(data))
                                                          "accounts": {"repo-owned": {"agent": "claude", "config_dir": "/"}}}))
         self.global_config.write_text(json.dumps({
             "accounts": {"codexwork": {"agent": "codex", "config_dir": str(self.root / "work"), "effort": "high"}}}))
-        names = lambda elder: [w["name"] for w in self.engine.voltron_workers(elder, repo)]
+        names = lambda elder: [w["name"] for w in self.engine.voltron_lions(elder, repo)]
         self.assertEqual(names("claude"), ["codex", "antigravity", "codexwork"])
         self.assertEqual(names("agy"), ["codex", "claude", "codexwork"])
         self.assertEqual(names("codexwork"), ["codex", "claude", "antigravity"])
-        self.assertEqual([w["name"] for w in self.engine.voltron_workers("claude", repo, exclude=["agy"])],
+        self.assertEqual([w["name"] for w in self.engine.voltron_lions("claude", repo, exclude=["agy"])],
                          ["codex", "codexwork"])
-        with self.assertRaisesRegex(ValueError, "unknown worker"):
-            self.engine.voltron_workers("gemini", repo)
-        workers = self.engine.voltron_workers("claude", repo)
-        self.assertEqual(workers[0]["config_dir"], None)  # built-in Codex ignores the host's CODEX_HOME
-        self.assertEqual(workers[2], dict(name="codexwork", agent="codex", config_dir=str((self.root / "work").resolve()),
+        with self.assertRaisesRegex(ValueError, "unknown lion"):
+            self.engine.voltron_lions("gemini", repo)
+        lions = self.engine.voltron_lions("claude", repo)
+        self.assertEqual(lions[0]["config_dir"], None)  # built-in Codex ignores the host's CODEX_HOME
+        self.assertEqual(lions[2], dict(name="codexwork", agent="codex", config_dir=str((self.root / "work").resolve()),
                                           effort="high", model="gpt-x"))
         # An account on the default Codex directory would run the built-in account twice.
         self.global_config.write_text(json.dumps({"accounts": {"twin": {"agent": "codex", "config_dir": "~/.codex"}}}))
         with self.assertRaisesRegex(ValueError, "same account directory"):
-            self.engine.voltron_workers("claude", repo)
+            self.engine.voltron_lions("claude", repo)
         self.global_config.write_text(json.dumps({
             "accounts": {"codexwork": {"agent": "codex", "config_dir": str(self.root / "work"), "effort": "high"}}}))
 
@@ -973,6 +973,71 @@ print(json.dumps(data))
         with patch.object(self.engine.sys.stdin, "isatty", return_value=False):
             with self.assertRaisesRegex(ValueError, "needs a terminal"):
                 self.engine.pick_models_interactive()
+
+    def test_followup_answers_land_in_the_report_without_changing_the_decision(self):
+        self.run_dir = self.engine.init_run(self.brief, "codex", self.root, sources=[self.source],
+                                            run_dir=self.root / "fu-run", output_dir=self.root / "out")
+        for _ in range(4):
+            self.one_round()
+        final = self.root / "final.json"
+        final.write_text(json.dumps(dict(answer="Use 10.", agreement="All agree.", dissent="None.",
+                                         uncertainties="Not benchmarked.")))
+        self.engine.finish(self.run_dir, final)
+        folder = Path(self.engine.status(self.run_dir)["output_dir"])
+        report = folder / f"decisions-{self.slug}.html"
+        before = report.read_text()
+        self.assertIn('id="dissent" data-ask=', before)
+        self.assertIn(json.dumps(str(folder)), before)  # the copied command points at the folder the user reads
+        self.assertEqual(self.engine.report_followups(report), [])
+        answers = self.root / "answers.json"
+        answers.write_text(json.dumps([
+            dict(section="dissent", quote="None.", question="Why no dissent?", answer="All four rounds agreed </script>.",
+                 effect="clarifies", basis="claude round 4"),
+            dict(question="What if the limit is 1000?", answer="That is new information.", effect="challenges")]))
+        result = self.engine.followup(folder, answers)
+        self.assertEqual((result["added"], result["challenges"]), ([1, 2], [2]))
+        records = self.engine.report_followups(report)
+        self.assertEqual([(r["section"], r["id"]) for r in records], [("dissent", 1), ("general", 2)])
+        self.assertIn("&lt;/script&gt;", records[0]["answer_html"])
+        after = report.read_text()
+        strip = lambda text: self.engine.FOLLOWUPS_BLOCK.sub("", text)
+        self.assertEqual(strip(after), strip(before))  # only the follow-up block changed
+        self.assertEqual(after.count("</script>"), before.count("</script>"))
+        log = (folder / f"followup-{self.slug}.md").read_text()
+        self.assertIn("**Question:** Why no dissent?", log)
+        self.assertIn("Challenges the decision", log)
+        answers.write_text(json.dumps(dict(question="Again?", answer="Yes.", effect="clarifies")))
+        self.assertEqual(self.engine.followup(folder, answers)["total"], 3)
+        # Re-rendering keeps the answers added to the exported copy.
+        self.engine.export_html_cmd(self.run_dir)
+        self.assertEqual(len(self.engine.report_followups(report)), 3)
+        for bad in (dict(question="q", answer="a", effect="maybe"), dict(question=" ", answer="a", effect="clarifies"),
+                    dict(question="q", answer="a", effect="clarifies", extra=1), []):
+            answers.write_text(json.dumps(bad))
+            with self.assertRaises(ValueError):
+                self.engine.followup(folder, answers)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            self.engine.followup(self.root, answers)
+
+    def test_default_run_works_in_the_report_folder_and_removes_temp_when_finished(self):
+        self.run_dir = self.raw_init(self.brief, "codex", self.root, sources=[self.source])
+        self.engine.approve_scope(self.run_dir)
+        folder = Path(self.engine.status(self.run_dir)["output_dir"])
+        self.assertEqual(Path(self.run_dir), folder / "temp")
+        self.assertEqual(folder.parent, (self.root / "docs" / "cogitors").resolve())
+        self.assertEqual((folder / "temp" / ".gitignore").read_text(), "*\n")  # git never sees working files
+        for _ in range(4):
+            self.one_round()
+        final = self.root / "final.json"
+        final.write_text(json.dumps(dict(answer="Use 10.", agreement="All agree.", dissent="None.",
+                                         uncertainties="Not benchmarked.")))
+        result = self.engine.finish(self.run_dir, final)
+        self.assertFalse((folder / "temp").exists())
+        self.assertIsNone(result["run_dir"])
+        self.assertEqual(result["final"], str(folder / f"decision-{self.slug}.md"))
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), sorted(
+            [f"brief-{self.slug}.md", f"decision-{self.slug}.md", f"decisions-{self.slug}.html",
+             f"metrics-{self.slug}.json"] + [f"{a}-{self.slug}.md" for a in self.engine.AGENTS]))
 
 
 if __name__ == "__main__":

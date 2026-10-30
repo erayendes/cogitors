@@ -17,14 +17,14 @@ Beş skill'in hepsini kurun; `/codex`, `/claude`, `/antigravity` ve `/voltron` `
 
 ## Ek Hesaplar (Voltron)
 
-`/voltron`, Elder'ın kendi oturumu dışındaki her CLI'yi çalıştırır. Claude ya da Codex'in ikinci bir girişini ayrı işçi olarak eklemek için `~/.cogitors/config.json` dosyasında o girişin yapılandırma klasörünü verin. Hesaplar yalnızca bu genel dosyadan okunur, projedeki `.cogitors.json` dosyasından okunmaz; böylece klonlanan bir depo, bir CLI'nin hangi hesap klasörünü yükleyeceğini seçemez:
+`/voltron`, Elder'ın kendi oturumu dışındaki her CLI'yi çalıştırır. Claude ya da Codex'in ikinci bir girişini ayrı bir aslan olarak eklemek için `~/.cogitors/config.json` dosyasında o girişin yapılandırma klasörünü verin. Hesaplar yalnızca bu genel dosyadan okunur, projedeki `.cogitors.json` dosyasından okunmaz; böylece klonlanan bir depo, bir CLI'nin hangi hesap klasörünü yükleyeceğini seçemez:
 
 ```json
 {"accounts": {"claudework": {"agent": "claude", "config_dir": "~/.claude-work"},
               "codexwork": {"agent": "codex", "config_dir": "~/.codex-work"}}}
 ```
 
-Bir hesap kendi `model` ve `effort` değerini de belirleyebilir; belirlemezse kayıtlı modeller kullanılır. Aynı anda en fazla beş işçi çalışır; `--exclude AD` bir işçiyi dışarıda bırakır. `cogitor.py voltron --elder claude --check` model çağırmadan işçileri listeler ve girişlerini kontrol eder.
+Bir hesap kendi `model` ve `effort` değerini de belirleyebilir; belirlemezse kayıtlı modeller kullanılır. Voltron'u oluşturan beş aslan gibi, aynı anda en fazla beş aslan çalışır; `--exclude AD` bir aslanı dışarıda bırakır. `cogitor.py voltron --elder claude --check` model çağırmadan aslanları listeler ve girişlerini kontrol eder.
 
 ## Tanı (Doctor)
 

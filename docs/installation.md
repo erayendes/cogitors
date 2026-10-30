@@ -17,14 +17,14 @@ Install all five skills; `/codex`, `/claude`, `/antigravity` and `/voltron` use 
 
 ## Extra Accounts (Voltron)
 
-`/voltron` runs every CLI except the Elder's own session. To add a second login of Claude or Codex as its own worker, point it at that login's config directory in `~/.cogitors/config.json`. Accounts are read only from this global file, never from a project's `.cogitors.json`, so a cloned repository cannot choose which account directory a CLI loads:
+`/voltron` runs every CLI except the Elder's own session. To add a second login of Claude or Codex as its own lion, point it at that login's config directory in `~/.cogitors/config.json`. Accounts are read only from this global file, never from a project's `.cogitors.json`, so a cloned repository cannot choose which account directory a CLI loads:
 
 ```json
 {"accounts": {"claudework": {"agent": "claude", "config_dir": "~/.claude-work"},
               "codexwork": {"agent": "codex", "config_dir": "~/.codex-work"}}}
 ```
 
-An account may also set its own `model` and `effort`; otherwise it uses the saved models. At most five workers run at once; `--exclude NAME` leaves one out. `cogitor.py voltron --elder claude --check` lists the workers and checks their logins without calling a model.
+An account may also set its own `model` and `effort`; otherwise it uses the saved models. At most five lions run at once, like the five that form Voltron; `--exclude NAME` leaves one out. `cogitor.py voltron --elder claude --check` lists the lions and checks their logins without calling a model.
 
 ## Diagnostics (Doctor)
 
