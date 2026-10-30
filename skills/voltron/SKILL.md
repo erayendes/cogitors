@@ -1,38 +1,17 @@
 ---
 name: voltron
-description: Use when the user invokes /voltron or explicitly asks every model and account to do the same task separately. Not for a deliberation (use cogitors) or a single-agent task.
+description: Use when the user invokes /voltron or explicitly asks to form Voltron: split the current job into parts that every other model and account builds at once, then join them. For one task seen from several views use lions; for a deliberation use cogitors.
 ---
 
 # Voltron
 
-The host is the Elder. Every other model and account is a **lion**, and each lion does the same task on its own: the Codex, Claude and Antigravity CLIs plus each extra account in the cogitors config, minus the Elder's own session. Lion reports are raw input for the Elder: the Elder checks them and gives the user one answer.
+Form Voltron: the Elder splits the job at hand into parts, each lion builds one part at the same time, and the Elder joins the parts into one working whole. Read [lions](references/lions.md) first, for who the lions are, choosing models, the plan format, running and reading results; in a repository checkout it is `../cogitors/references/lions.md`.
 
-## Lions
+## Form Voltron
 
-`--elder` names the host's own lion: `codex`, `claude`, `agy`, or an account name when the host itself runs under that account's config directory (for example `claudework` when `CLAUDE_CONFIG_DIR` is `~/.claude-work`). Another account of the Elder's CLI is still a lion; the built-in `codex` and `claude` lions always run on the default account.
-
-Extra accounts are `accounts` entries in the user's global `~/.cogitors/config.json` only, each `{"agent": "codex" | "claude", "config_dir": "~/.codex-work"}` with an optional `model` and `effort`. Other lions use the saved cogitors models. The voltron command has no model or effort flags: when the user wants another model, say so and ask before changing their config. At most five lions run at once, like the five that form Voltron; `--exclude NAME` (repeatable) leaves a lion out.
-
-## Run
-
-In a repository checkout the script is `../cogitors/scripts/cogitor.py` and the execution reference is `../cogitors/references/execution.md`, both relative to this SKILL.md's directory; packages contain their own copies at `scripts/` and [execution](references/execution.md). Read the execution reference for sandbox and login checks.
-
-1. **Choose access.** `review` for reading tasks (code review, analysis, questions): lions run in their read-only or plan modes, which are not an OS-level guarantee. `edit` (needs a git repository with a commit) when the task changes files: each lion gets its own detached git worktree from `HEAD`, starting in the same subdirectory as `--cwd`, and leaves its changes uncommitted. Those worktrees hold only committed work; when the result shows `dirty_checkout`, tell the user their uncommitted changes were not part of the task.
-2. **Write the task file** outside the project, for example in the system temp directory, with the host's file tool: the user's task in their words, the scope, and the output the Elder needs back (for a review: findings with `file:line`, severity and evidence). Include only the task's own context, leaving out credentials and unrelated chat history.
-3. **Check.** Run `cogitor.py voltron --elder ELDER --cwd /project --check`. It calls no model; its `lions` list is who will start. If a lion fails the check, nothing runs: name the lion and its reason, and offer `--exclude` for it.
-4. **Form Voltron.** Announce it in the user's language with Voltron's line, "Let's form Voltron!" (Turkish: "Voltron oluşturuyoruz!"), followed by the lions, the access and the timeout in one line; then run in the background:
-
-   ```sh
-   python3 /actual/installed-skill/scripts/cogitor.py voltron --elder ELDER --file /tmp/task.md --cwd /project --access review --timeout 900
-   ```
-
-   The timeout is per lion, at most 3600 seconds. Exit code 1 only means some lion failed; the JSON on stdout is still the result, and its `run_dir` is needed for cleanup.
-5. **Read every result.** Each job's `result_path` holds its `response`; a failed job's `status` (`failed`, `timeout`, `cancelled`) and `error` give the reason. This step is done when every lion's response is read and every failed lion is named with its reason. Continue with the lions that succeeded; a failed lion stays failed, with no retry or substitute model.
-
-## Answer
-
-Give the user one answer in their language. Account for every finding: merged with its duplicates and counted by how many lions raised it (3/4), verified by the Elder, labeled as unconfirmed, or dropped with the reason. Show raw reports only when the user asks.
-
-For `edit`, skip jobs whose `changed` is false or whose `status` is not `success`, and read any `diff_error`. Compare the rest by `diff_path`, pick or combine the best, then from the repository root run `git apply --check DIFF` and `git apply DIFF`, and verify with the project's own checks. Apply only what the user's task authorized, and leave it uncommitted unless the user asks for a commit.
-
-Finish with `cogitor.py voltron-clean RUN_DIR` using the result's `run_dir`, after applying any diff; it deletes the worktrees, diffs and reports.
+1. **Split.** Break the current job into independent parts, one per lion, at most five; a small job uses fewer lions. Give each part its own `owns` paths so no two lions change the same file. When parts meet at an interface, write that shared scaffold yourself first (types, interfaces, stubs, the data contract) in the working tree; every lion starts from the working tree as it is.
+2. **Match lions to parts.** Choose each lion's model and effort from `cogitor.py models` by what its part demands.
+3. **Announce.** Say "Let's form Voltron!" in the user's language (Turkish: "Voltron oluşturuyoruz!"), then the plan: lion · model · effort → part (paths). Start right away unless the user asked to see the plan first.
+4. **Run** a `parts` plan with `--access edit`, or `review` when every part only reads (for example a review split by area).
+5. **Join.** Skip lions whose `status` is not `success` or whose `changed` is false, and decide what to keep of any `outside_owns` change. Apply the diffs one by one, resolve conflicts, then run the project's own checks and fix what the joining broke. This step is done when every part is applied or set aside with a reason and the checks pass, or their failures are named.
+6. **Report** to the user in their language: what each lion built, what you changed while joining, the check results, and any part left undone. Then clean the run.

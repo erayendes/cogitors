@@ -35,13 +35,13 @@ Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde t
 
 ---
 
-## Beş Skill
+## Altı Skill
 
 `/<model> <görev>` Codex, Antgravity ya da Claude göreve çağırılır ve arka planda işini halleder.
 
 Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protokolünü başlatır.
 
-`/voltron <görev>` Voltron'u oluşturur: Elder dışındaki her model ve hesap bir aslan olur ve aynı görevi tartışma olmadan aynı anda yapar. Raporlar Elder'a gider; Elder bunları kontrol eder ve size tek bir cevap verir. Dosya değiştiren görevlerde her aslan ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
+`/voltron <görev>` Voltron'u oluşturur: Elder işi parçalara böler, Elder dışındaki her model ve hesap bir aslan olarak bir parçayı aynı anda yapar, Elder parçaları birleştirip testleri çalıştırır. `/lions <görev>` ise her aslanı aynı göreve gönderir; her biri işe kendi bakış açısından bakar, Elder bulguları birleştirir. Code review ya da ikinci görüş için uygundur. Elder her aslana bir model seçer ve hemen başlar; çıktılar Elder içindir, size tek bir özet gelir. Dosya değiştiren işlerde her aslan ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
 
 ```text
 - /antigravity Bu teknik şartnamede çelişen maddeleri bul.
@@ -51,7 +51,8 @@ Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protoko
 - /cogitors Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
 - /cogitors --git-diff HEAD~1 Bu PR'daki değişiklikleri güvenlik ve performans açısından müzakere edin.
 
-- /voltron Bu repodaki hataları incele.
+- /voltron Ödeme akışını yap: API, arayüz ve testler.
+- /lions Bu repodaki hataları incele.
 ```
 
 > [!NOTE]
@@ -135,7 +136,7 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors/` dizinine kaydedilir. �
 
 ## Hızlı Kurulum
 
-`npx skills add erayendes/cogitors` komutunu kullanın ve beş skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
+`npx skills add erayendes/cogitors` komutunu kullanın ve altı skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
 
 ---
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "Voltron"
-  short_description: "Form Voltron: every other model and account takes the task as a lion"
-  default_prompt: "Use $voltron to have every other model and account review this repository separately, then give one combined answer."
+  short_description: "Form Voltron: split the job into parts that every other model and account builds at once"
+  default_prompt: "Use $voltron to split this job into parts for the other models and accounts, then join their work and run the checks."

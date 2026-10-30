@@ -8,7 +8,7 @@
 npx skills add erayendes/cogitors
 ```
 
-Install all five skills; `/codex`, `/claude`, `/antigravity` and `/voltron` use the `cogitors` engine.
+Install all six skills; `/codex`, `/claude`, `/antigravity`, `/voltron` and `/lions` use the `cogitors` engine.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ Install all five skills; `/codex`, `/claude`, `/antigravity` and `/voltron` use 
 
 ## Extra Accounts (Voltron)
 
-`/voltron` runs every CLI except the Elder's own session. To add a second login of Claude or Codex as its own lion, point it at that login's config directory in `~/.cogitors/config.json`. Accounts are read only from this global file, never from a project's `.cogitors.json`, so a cloned repository cannot choose which account directory a CLI loads:
+`/voltron` and `/lions` run every CLI except the Elder's own session. To add a second login of Claude or Codex as its own lion, point it at that login's config directory in `~/.cogitors/config.json`. Accounts are read only from this global file, never from a project's `.cogitors.json`, so a cloned repository cannot choose which account directory a CLI loads:
 
 ```json
 {"accounts": {"claudework": {"agent": "claude", "config_dir": "~/.claude-work"},
@@ -67,13 +67,13 @@ npx cogitors banner /path/run [--markdown]
 
 ## Manual Install (Build)
 
-To build the five standalone skill packages, clone the repository and run:
+To build the six standalone skill packages, clone the repository and run:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-This produces 5 installable folders (`cogitors`, `codex`, `claude`, `antigravity`, `voltron`) under `dist/` and a `.skill` zip archive for each. Copy the built folders into your agent's skill directory:
+This produces 6 installable folders (`cogitors`, `codex`, `claude`, `antigravity`, `voltron`, `lions`) under `dist/` and a `.skill` zip archive for each. Copy the built folders into your agent's skill directory:
 
 | Agent / Host | Skill Directory |
 |---|---|

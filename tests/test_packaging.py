@@ -1,4 +1,4 @@
-"""Offline checks for the five self-contained skill bundles."""
+"""Offline checks for the six self-contained skill bundles."""
 
 import json
 import subprocess
@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 PACKAGER = Path(__file__).resolve().parents[1] / "scripts" / "package_skills.py"
-NAMES = ("cogitors", "codex", "claude", "antigravity", "voltron")
+NAMES = ("cogitors", "codex", "claude", "antigravity", "voltron", "lions")
 RUNNER = (
     "import argparse\n"
     "argparse.ArgumentParser(description='portable fixture runner').parse_args()\n"
@@ -37,6 +37,7 @@ class PackagingTests(unittest.TestCase):
         (cogitors / "scripts" / "run.py").write_text(RUNNER, encoding="utf-8")
         (cogitors / "scripts" / "cogitor.py").write_text("# controller\n", encoding="utf-8")
         (cogitors / "references").mkdir()
+        (cogitors / "references" / "lions.md").write_text("Lions reference.\n", encoding="utf-8")
         (cogitors / "references" / "execution.md").write_text(
             "Portable execution instructions.\n", encoding="utf-8"
         )
@@ -63,9 +64,11 @@ class PackagingTests(unittest.TestCase):
         result = self.run_packager()
         self.assertEqual(result.returncode, 0, result.stderr)
         summary = json.loads(result.stdout)
-        self.assertEqual(len(summary["folders"]), 5)
-        self.assertEqual(len(summary["archives"]), 5)
-        self.assertEqual((self.output / "voltron" / "scripts" / "cogitor.py").read_text(), "# controller\n")
+        self.assertEqual(len(summary["folders"]), 6)
+        self.assertEqual(len(summary["archives"]), 6)
+        for name in ("voltron", "lions"):
+            self.assertEqual((self.output / name / "scripts" / "cogitor.py").read_text(), "# controller\n")
+            self.assertEqual((self.output / name / "references" / "lions.md").read_text(), "Lions reference.\n")
         self.assertFalse((self.output / "codex" / "scripts" / "cogitor.py").exists())
         for name in NAMES:
             folder = self.output / name

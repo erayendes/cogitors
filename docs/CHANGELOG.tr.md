@@ -2,6 +2,17 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
+## Yayınlanmamış
+
+### Yeni
+- **/lions:** Elder dışındaki her model ve hesap aynı görevi kendi bakış açısından yapar; Elder bulguları birleştirir. 0.2.0'daki `/voltron` böyle çalışıyordu.
+- **Modelli plan:** `/voltron` ve `/lions` için Elder her aslanın modelini, effort'unu ve işini yazan bir plan hazırlar, gösterir ve hemen başlar. `cogitors voltron --plan` planı çalıştırır.
+- **Güncel model listeleri:** `cogitors models`, Codex ve Antigravity modellerini kendi CLI'larından okur; Claude listesi güncel takma adları kullanır.
+
+### Değişenler
+- **/voltron** artık işi parçalara böler: her aslan kendi dosyaları içinde bir parçayı yapar, Elder parçaları birleştirip testleri çalıştırır. Bir aslanın kendi parçası dışında değiştirdiği dosyalar bildirilir.
+- Dosya değiştiren aslanlar, çalışma klasörünün o anki hâlinden başlar; commit edilmemiş ve izlenmeyen dosyalar dahil. Böylece Elder ortak zemini commit etmeden hazırlayabilir.
+
 ## 0.2.0
 
 ### Yeni

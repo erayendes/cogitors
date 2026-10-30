@@ -2,6 +2,17 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
+## Unreleased
+
+### New
+- **/lions:** Every other model and account does the same task from its own view; the Elder merges what they find. This is how `/voltron` worked in 0.2.0.
+- **Plans with models:** For `/voltron` and `/lions` the Elder writes a plan that names each lion's model, effort and work, shows it and starts at once. `cogitors voltron --plan` runs it.
+- **Current model lists:** `cogitors models` reads Codex's and Antigravity's models from their CLIs; the Claude list uses the current aliases.
+
+### Changed
+- **/voltron** now splits the job into parts: each lion builds one part within its own paths, and the Elder joins the parts and runs the checks. Files a lion changed outside its part are reported.
+- Lions that edit start from a snapshot of the working tree, uncommitted and untracked files included, so the Elder can lay shared groundwork first without a commit.
+
 ## 0.2.0
 
 ### New

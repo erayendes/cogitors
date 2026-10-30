@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lions"
+  short_description: "Every other model and account does the same task from its own view"
+  default_prompt: "Use $lions to have every other model and account review this repository separately, then give one combined answer."

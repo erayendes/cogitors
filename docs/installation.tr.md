@@ -8,7 +8,7 @@
 npx skills add erayendes/cogitors
 ```
 
-Beş skill'in hepsini kurun; `/codex`, `/claude`, `/antigravity` ve `/voltron` `cogitors` motorunu kullanır.
+Altı skill'in hepsini kurun; `/codex`, `/claude`, `/antigravity`, `/voltron` ve `/lions` `cogitors` motorunu kullanır.
 
 ## Gereksinimler
 
@@ -17,7 +17,7 @@ Beş skill'in hepsini kurun; `/codex`, `/claude`, `/antigravity` ve `/voltron` `
 
 ## Ek Hesaplar (Voltron)
 
-`/voltron`, Elder'ın kendi oturumu dışındaki her CLI'yi çalıştırır. Claude ya da Codex'in ikinci bir girişini ayrı bir aslan olarak eklemek için `~/.cogitors/config.json` dosyasında o girişin yapılandırma klasörünü verin. Hesaplar yalnızca bu genel dosyadan okunur, projedeki `.cogitors.json` dosyasından okunmaz; böylece klonlanan bir depo, bir CLI'nin hangi hesap klasörünü yükleyeceğini seçemez:
+`/voltron` ve `/lions`, Elder'ın kendi oturumu dışındaki her CLI'yi çalıştırır. Claude ya da Codex'in ikinci bir girişini ayrı bir aslan olarak eklemek için `~/.cogitors/config.json` dosyasında o girişin yapılandırma klasörünü verin. Hesaplar yalnızca bu genel dosyadan okunur, projedeki `.cogitors.json` dosyasından okunmaz; böylece klonlanan bir depo, bir CLI'nin hangi hesap klasörünü yükleyeceğini seçemez:
 
 ```json
 {"accounts": {"claudework": {"agent": "claude", "config_dir": "~/.claude-work"},
@@ -67,13 +67,13 @@ npx cogitors banner /path/run [--markdown]
 
 ## Elle Kurulum (Build)
 
-Beş bağımsız skill paketini derlemek için repoyu klonlayıp şunu çalıştırın:
+Altı bağımsız skill paketini derlemek için repoyu klonlayıp şunu çalıştırın:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_skills.py --output dist
 ```
 
-Bu komut `dist/` altında kurulabilir 5 klasör (`cogitors`, `codex`, `claude`, `antigravity`, `voltron`) ve her birinin `.skill` zip arşivini üretir. Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalayın:
+Bu komut `dist/` altında kurulabilir 6 klasör (`cogitors`, `codex`, `claude`, `antigravity`, `voltron`, `lions`) ve her birinin `.skill` zip arşivini üretir. Derlenen klasörleri kullandığınız ajanın skill klasörüne kopyalayın:
 
 | Ajan / Ortam | Skill Dizin Yolu |
 |---|---|

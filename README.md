@@ -35,13 +35,13 @@ Every model receives the whole task. Over four rounds they analyze independently
 
 ---
 
-## Five Skills
+## Six Skills
 
 `/<model> <task>` calls Codex, Antigravity or Claude onto a task, and it gets the job done in the background.
 
 `/cogitors <task>` is different: it starts the five-round deliberation protocol with all three agents.
 
-`/voltron <task>` forms Voltron: every other model and account becomes a lion and does the same task at once, with no debate. Their reports go to the Elder, which checks them and gives you one answer. Tasks that change files run in a separate git worktree per lion. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
+`/voltron <task>` forms Voltron: the Elder splits the job into parts, every other model and account builds one part as a lion at the same time, and the Elder joins them and runs the checks. `/lions <task>` sends every lion to the same task instead, each from its own view, and the Elder merges what they find; it suits a code review or a second opinion. The Elder picks a model for each lion and starts at once; their output is for the Elder, which gives you one summary. Work that changes files runs in a separate git worktree per lion. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
 
 ```text
 - /antigravity Find the contradicting clauses in this technical spec.
@@ -51,7 +51,8 @@ Every model receives the whole task. Over four rounds they analyze independently
 - /cogitors Review this architecture proposal together. Do not change any code, and state unresolved objections explicitly.
 - /cogitors --git-diff HEAD~1 Deliberate on this PR's changes for security and performance.
 
-- /voltron Review this repository for bugs.
+- /voltron Build the checkout flow: API, UI and tests.
+- /lions Review this repository for bugs.
 ```
 
 > [!NOTE]
@@ -135,7 +136,7 @@ Every session is saved in the task's language under your project's `docs/cogitor
 
 ## Quick Install
 
-Run `npx skills add erayendes/cogitors` and install all five skills. Details [here](docs/installation.md).
+Run `npx skills add erayendes/cogitors` and install all six skills. Details [here](docs/installation.md).
 
 ---
 

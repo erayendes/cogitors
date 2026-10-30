@@ -2245,7 +2245,7 @@ def fetch_antigravity_models():
             models = []
             for line in proc.stdout.splitlines():
                 line = re.sub(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇\s\.]+", "", line).strip()
-                if line:
+                if "\t" in line:  # model rows are "id<TAB>name"; status lines such as "Fetching…" are not
                     parts = line.split(None, 1)
                     mid = parts[0]
                     desc = parts[1] if len(parts) > 1 else mid
@@ -2257,51 +2257,53 @@ def fetch_antigravity_models():
     return None
 
 
+def fetch_codex_models():
+    """Codex's own catalog of listed models, best first."""
+    if not shutil.which("codex"):
+        return None
+    try:
+        proc = subprocess.run(["codex", "debug", "models"], capture_output=True, text=True, timeout=5)
+        models = json.loads(proc.stdout).get("models") if proc.returncode == 0 else None
+        listed = sorted((m for m in models or [] if isinstance(m, dict) and m.get("visibility") == "list"
+                         and m.get("slug")), key=lambda m: m.get("priority", 999))
+        return [(m["slug"], m.get("description") or m.get("display_name") or m["slug"]) for m in listed] or None
+    except Exception:
+        return None
+
+
 def get_available_models_catalog():
+    # Codex and Antigravity are read from their CLIs; these lists are only the offline fallback.
     catalog = {
         "codex": {
-            "models": [
-                ("o3", "Deep reasoning, highest problem-solving capability (Recommended)"),
-                ("o3-mini", "Fast, high-efficiency reasoning for code and math"),
-                ("o1", "Full reasoning model for complex tasks"),
-                ("gpt-4o", "Versatile high-speed model without extended reasoning"),
-            ],
-            "default": "o3",
+            "models": [("gpt-6.1-sol", "Workhorse model for coding and everyday work"),
+                       ("gpt-6-astra", "Frontier intelligence for the most demanding work"),
+                       ("gpt-6-luna", "Fast and affordable model for easier tasks")],
+            "default": "gpt-6.1-sol",
             "efforts": effort_choices("codex"),
             "default_effort": "high",
         },
         "claude": {
-            "models": [
-                ("sonnet", "Claude 3.7 Sonnet, best coding and analysis (Recommended)"),
-                ("opus", "Claude 3 Opus, maximum depth and prose"),
-                ("haiku", "Claude 3.5 Haiku, ultra fast responses"),
-                ("claude-3-7-sonnet-latest", "Explicit 3.7 Sonnet release"),
-                ("claude-3-5-sonnet-latest", "Explicit 3.5 Sonnet release"),
-            ],
+            "models": [("opus", "Latest Opus: deepest reasoning (claude-opus-5-5)"),
+                       ("sonnet", "Latest Sonnet: strong coding at lower cost (claude-sonnet-5-5)"),
+                       ("haiku", "Latest Haiku: fastest (claude-haiku-5-5)"),
+                       ("fable", "Latest Fable (claude-fable-5-1)")],
             "default": "sonnet",
             "efforts": effort_choices("claude"),
             "default_effort": None,
         },
         "antigravity": {
-            "models": [
-                ("gemini-3.1-pro-high", "Gemini 3.1 Pro (High Reasoning) (Recommended)"),
-                ("gemini-3.8-flash-high", "Gemini 3.8 Flash (High Reasoning, Fast)"),
-                ("gemini-3.7-flash-high", "Gemini 3.7 Flash (High Reasoning)"),
-                ("claude-sonnet-4-6", "Claude Sonnet 4.6 Thinking (via Antigravity)"),
-            ],
-            "default": "gemini-3.1-pro-high",
+            "models": [("gemini-4-argon-high", "Gemini 4 Argon (High)"),
+                       ("gemini-3.8-flash-high", "Gemini 3.8 Flash (High)")],
+            "default": "gemini-4-argon-high",
             "efforts": effort_choices("antigravity"),
             "default_effort": "high",
         }
     }
-    dynamic_agy = fetch_antigravity_models()
-    if dynamic_agy:
-        catalog["antigravity"]["models"] = dynamic_agy
-        ids = [m[0] for m in dynamic_agy]
-        if "gemini-3.1-pro-high" in ids:
-            catalog["antigravity"]["default"] = "gemini-3.1-pro-high"
-        elif ids:
-            catalog["antigravity"]["default"] = ids[0]
+    for agent, fetch in (("codex", fetch_codex_models), ("antigravity", fetch_antigravity_models)):
+        dynamic = fetch()
+        if dynamic:
+            catalog[agent]["models"] = dynamic
+            catalog[agent]["default"] = dynamic[0][0]
     return catalog
 
 
@@ -2670,42 +2672,127 @@ def voltron_lions(elder, cwd=None, exclude=()):
     return chosen
 
 
-def git(cwd, *args, raw=False):
+def git(cwd, *args, raw=False, index=None, config=()):
     env = {k: v for k, v in os.environ.items() if k not in runner.GIT_OVERRIDES}
-    done = subprocess.run(["git", "-C", str(cwd)] + list(args), stdin=subprocess.DEVNULL,
+    if index:
+        env["GIT_INDEX_FILE"] = str(index)
+    done = subprocess.run(["git", "-C", str(cwd)] + list(config) + list(args), stdin=subprocess.DEVNULL,
                           capture_output=True, env=env)
     if done.returncode:
         raise ValueError("git %s failed: %s" % (args[0], done.stderr.decode("utf-8", "replace").strip()[:300]))
     return done.stdout if raw else done.stdout.decode("utf-8", "replace")
 
 
-def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
-    """Give one task to every lion but the Elder; edits go to one detached worktree each."""
+def snapshot_commit(top, scratch):
+    """A commit of the working tree as it is now, untracked files included, on no branch.
+    The user's branch, index and files stay untouched; lions start from what the Elder sees."""
+    index = Path(scratch) / "snapshot.index"
+    try:
+        head = git(top, "rev-parse", "--verify", "HEAD").strip()
+    except ValueError:
+        head = None
+    if head:
+        git(top, "read-tree", head, index=index)
+    git(top, "add", "-A", index=index)
+    tree = git(top, "write-tree", index=index).strip()
+    index.unlink(missing_ok=True)
+    try:
+        git(top, "config", "user.email")
+        identity = []
+    except ValueError:  # the snapshot is on no branch, so a placeholder author is harmless
+        identity = ["-c", "user.name=voltron", "-c", "user.email=voltron@localhost"]
+    return git(top, "commit-tree", tree, "-m", "voltron snapshot", *(["-p", head] if head else []),
+               config=identity).strip()
+
+
+def load_plan(path):
+    """A run plan: mode parts (each lion its own task) or same (one task, each lion's own view)."""
+    plan = read_json(path)
+    if not isinstance(plan, dict) or set(plan) - {"mode", "task", "lions"} or plan.get("mode") not in ("parts", "same"):
+        raise ValueError("plan needs mode parts or same, lions, and optional task")
+    shared = plan.get("task", "")
+    lions = plan.get("lions")
+    if not isinstance(shared, str) or not isinstance(lions, list) or not lions:
+        raise ValueError("plan task must be text and lions a non-empty list")
+    if plan["mode"] == "same" and not shared.strip():
+        raise ValueError("a same-mode plan needs the task every lion does")
+    names = set()
+    for lion in lions:
+        if not isinstance(lion, dict) or set(lion) - {"name", "task", "model", "effort", "owns"} \
+                or not isinstance(lion.get("name"), str) or lion["name"] in names:
+            raise ValueError("each plan lion needs a distinct name; optional task, model, effort, owns")
+        names.add(lion["name"])
+        part = lion.get("task")
+        if plan["mode"] == "parts" and not (isinstance(part, str) and part.strip()):
+            raise ValueError("lion %s needs its own task in a parts plan" % lion["name"])
+        if plan["mode"] == "same" and part is not None:
+            raise ValueError("lion %s: a same plan gives every lion the plan's task" % lion["name"])
+        owns = lion.get("owns", [])
+        if not isinstance(owns, list) or any(not isinstance(o, str) or not o.strip() or o.startswith("/")
+                                              or ".." in Path(o).parts for o in owns):
+            raise ValueError("lion %s owns must be relative paths inside --cwd" % lion["name"])
+        for key in ("model", "effort"):
+            if key in lion and not (isinstance(lion[key], str) and lion[key].strip()):
+                raise ValueError("lion %s %s must be text" % (lion["name"], key))
+    return plan
+
+
+def plan_jobs(plan, elder, cwd, exclude=()):
+    """Jobs for the plan's lions, each with its own prompt, model and effort."""
+    available = {lion["name"]: lion for lion in voltron_lions(elder, cwd, exclude)}
+    jobs = []
+    for entry in plan["lions"]:
+        name = ELDER_ALIASES.get(entry["name"], entry["name"])
+        if name not in available:
+            raise ValueError("plan lion %s is not available; lions are %s" % (name, ", ".join(available)))
+        job = dict(available[name])
+        job.update({k: entry[k] for k in ("model", "effort") if k in entry})
+        if plan["mode"] == "parts":
+            others = ", ".join(e["name"] for e in plan["lions"] if e is not entry)
+            owns = entry.get("owns") or []
+            prompt = ("You are one of several agents doing parts of one job at the same time" +
+                      (" (the others: %s)" % others if others else "") + ". Do only your part." +
+                      (" Change only these paths: %s." % ", ".join(owns) if owns else "") +
+                      "\n\n" + (plan["task"].strip() + "\n\n" if plan["task"].strip() else "") +
+                      "Your part:\n" + entry["task"].strip())
+        else:
+            prompt = plan["task"].strip()
+        jobs.append(dict(job, prompt=prompt, owns=entry.get("owns") or []))
+    return jobs
+
+
+def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), plan_path=None):
+    """Run lions on one task (same) or on the parts of one job (parts); edits use one worktree each."""
     cwd = Path(cwd).resolve()
-    task = read_text(task_path).strip()
-    if not task:
-        raise ValueError("task file is empty")
     if access not in ("review", "edit"):
         raise ValueError("access must be review or edit")
+    if plan_path:
+        plan = load_plan(plan_path)
+    else:
+        task = read_text(task_path).strip()
+        if not task:
+            raise ValueError("task file is empty")
+        plan = dict(mode="same", task=task, lions=[dict(name=lion["name"]) for lion in voltron_lions(elder, cwd, exclude)])
+    jobs = plan_jobs(plan, elder, cwd, exclude)
     if access == "edit":
         try:
-            base = git(cwd, "rev-parse", "--verify", "HEAD").strip()
             top = Path(git(cwd, "rev-parse", "--show-toplevel").strip()).resolve()
         except (OSError, ValueError):
-            raise ValueError("edit needs a git repository with a commit; use review instead")
-        task = ("Work only in the current directory. Do not commit, push or create branches; "
-                "leave your changes uncommitted.\n\n" + task)
-    jobs = [dict(lion, cwd=str(cwd), prompt=task, access=access, timeout_seconds=timeout)
-            for lion in voltron_lions(elder, cwd, exclude)]
+            raise ValueError("edit needs a git repository; use review instead")
+        for job in jobs:
+            job["prompt"] = ("Work only in the current directory. Do not commit, push or create branches; "
+                             "leave your changes uncommitted.\n\n" + job["prompt"])
+    owns = {job["name"]: job.pop("owns") for job in jobs}
+    jobs = [dict(job, cwd=str(cwd), access=access, timeout_seconds=timeout) for job in jobs]
     runner.preflight(jobs)
     directory = Path(tempfile.mkdtemp(prefix="voltron-")).resolve()
     summary = dict(run_dir=str(directory), cwd=str(cwd), elder=ELDER_ALIASES.get(elder, elder),
-                   access=access, worktrees=[])
+                   mode=plan["mode"], access=access, worktrees=[])
     write_json(directory / "voltron.json", summary)
     if access == "edit":
-        summary.update(base=base, repo=str(top),
-                       dirty_checkout=bool(git(cwd, "status", "--porcelain", "--untracked-files=no").strip()))
         try:
+            base = snapshot_commit(top, directory)
+            summary.update(base=base, repo=str(top))
             for job in jobs:
                 worktree = directory / "worktrees" / job["name"]
                 git(top, "worktree", "add", "--detach", str(worktree), base)
@@ -2728,10 +2815,16 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=()):
             entry.update(worktree=str(worktree), diff_path=str(directory / (job["name"] + ".diff")))
             try:
                 git(worktree, "add", "-A")
-                # Against the start commit, so a lion's own commit still shows in its diff.
+                # Against the start snapshot, so a lion's own commit still shows in its diff.
                 diff = git(worktree, "diff", "--cached", "--binary", base, raw=True)
                 Path(entry["diff_path"]).write_bytes(diff)
                 entry["changed"] = bool(diff)
+                if owns[job["name"]]:
+                    prefix = cwd.relative_to(top)
+                    allowed = [(prefix / o).as_posix().rstrip("/") for o in owns[job["name"]]]
+                    changed = git(worktree, "diff", "--cached", "--name-only", base).splitlines()
+                    entry["outside_owns"] = [path for path in changed if not any(
+                        path == a or path.startswith(a + "/") for a in allowed)]
             except (OSError, ValueError) as exc:
                 entry.update(changed=None, diff_error=str(exc)[:300])
         summary["jobs"].append(entry)
@@ -3044,7 +3137,8 @@ def main():
     met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors")
     vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Elder")
     vol_cmd.add_argument("--elder", required=True, help="the host's own lion name (codex, claude, agy or an account)")
-    vol_cmd.add_argument("--file", type=Path, help="task text (required unless --check)")
+    vol_cmd.add_argument("--file", type=Path, help="one task every lion does (or use --plan)")
+    vol_cmd.add_argument("--plan", type=Path, help="JSON plan: mode parts|same, task, lions [{name, task, model, effort, owns}]")
     vol_cmd.add_argument("--cwd", type=Path, default=Path.cwd())
     vol_cmd.add_argument("--access", choices=("review", "edit"), default="review")
     vol_cmd.add_argument("--timeout", type=float, default=900, help="seconds per lion (max 3600)")
@@ -3097,13 +3191,16 @@ def main():
             result = metrics_summary(args.dir)
         elif args.command == "voltron":
             if args.check:
-                lions = voltron_lions(args.elder, args.cwd, args.exclude)
+                lions = (plan_jobs(load_plan(args.plan), args.elder, args.cwd, args.exclude) if args.plan
+                         else voltron_lions(args.elder, args.cwd, args.exclude))
+                lions = [{k: v for k, v in w.items() if k not in ("prompt", "owns")} for w in lions]
                 result = dict(runner.preflight([dict(w, cwd=str(args.cwd.resolve()), prompt="check")
                                                 for w in lions]), lions=lions)
-            elif not args.file:
-                raise ValueError("voltron needs --file with the task")
+            elif bool(args.file) == bool(args.plan):
+                raise ValueError("voltron needs exactly one of --file (one task) or --plan")
             else:
-                result = voltron(args.file, args.elder, args.cwd, args.access, args.timeout, args.exclude)
+                result = voltron(args.file, args.elder, args.cwd, args.access, args.timeout, args.exclude,
+                                 plan_path=args.plan)
         elif args.command == "voltron-clean":
             result = voltron_clean(args.run_dir)
         elif args.command == "followup":

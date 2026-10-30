@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build five portable skill folders and .skill ZIPs with Python 3.9+."""
+"""Build six portable skill folders and .skill ZIPs with Python 3.9+."""
 
 import argparse
 import json
@@ -10,12 +10,12 @@ import tempfile
 import zipfile
 
 
-NAMES = ("cogitors", "codex", "claude", "antigravity", "voltron")
+NAMES = ("cogitors", "codex", "claude", "antigravity", "voltron", "lions")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9-]{1,64}$")
 EXTENSIONS = {".md", ".py", ".yaml"}
 SHARED = ("scripts/run.py", "references/execution.md")
-# voltron runs through the cogitors controller.
-SHARED_EXTRA = {"voltron": ("scripts/cogitor.py",)}
+# voltron and lions run through the cogitors controller and share its lions reference.
+SHARED_EXTRA = {name: ("scripts/cogitor.py", "references/lions.md") for name in ("voltron", "lions")}
 SENSITIVE_NAME = re.compile(
     r"(?:^|[._-])(?:auth|credentials?|secrets?|tokens?|passwords?)(?:[._-]|$)", re.I
 )

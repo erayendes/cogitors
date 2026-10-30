@@ -605,12 +605,23 @@ print(json.dumps(data))
         self.assertNotIn("toggleTheme", html_text)
 
     def test_models_catalog_and_discovery(self):
-        catalog = self.engine.get_available_models_catalog()
-        self.assertIn("codex", catalog)
-        self.assertIn("claude", catalog)
-        self.assertIn("antigravity", catalog)
-        self.assertEqual(catalog["codex"]["default"], "o3")
+        with patch.object(self.engine, "fetch_codex_models", return_value=None), \
+                patch.object(self.engine, "fetch_antigravity_models", return_value=None):
+            catalog = self.engine.get_available_models_catalog()
+        self.assertEqual(catalog["codex"]["default"], "gpt-6.1-sol")
         self.assertEqual(catalog["claude"]["default"], "sonnet")
+        listed = json.dumps({"models": [dict(slug="b", visibility="list", priority=2),
+                                        dict(slug="hidden", visibility="hide", priority=0),
+                                        dict(slug="a", visibility="list", priority=1, description="best")]})
+        with patch.object(self.engine.shutil, "which", return_value="/bin/codex"), \
+                patch.object(self.engine.subprocess, "run",
+                             return_value=subprocess.CompletedProcess([], 0, stdout=listed, stderr="")):
+            self.assertEqual(self.engine.fetch_codex_models(), [("a", "best"), ("b", "b")])
+        agy = "Fetching available models...\ngemini-x-high\tGemini X (High)\n"
+        with patch.object(self.engine.shutil, "which", return_value="/bin/agy"), \
+                patch.object(self.engine.subprocess, "run",
+                             return_value=subprocess.CompletedProcess([], 0, stdout=agy, stderr="")):
+            self.assertEqual(self.engine.fetch_antigravity_models(), [("gemini-x-high", "Gemini X (High)")])
         models_data = self.engine.models_cmd(as_json=True)
         self.assertIn("codex", models_data["agents"])
         self.assertIn("available_models", models_data["agents"]["codex"])
@@ -880,7 +891,7 @@ print(json.dumps(data))
         self.assertFalse(jobs["codexwork"]["changed"])
         self.assertIn(b"+limit = 10\r\n", Path(jobs["codex"]["diff_path"]).read_bytes())
         self.assertEqual((repo / "app.py").read_text(), "limit = 100\n")  # the checkout is untouched
-        self.assertFalse(summary["dirty_checkout"])  # an untracked file is not a dirty checkout
+        self.assertEqual(summary["mode"], "same")
         self.engine.voltron_clean(summary["run_dir"])
         self.assertFalse(Path(summary["run_dir"]).exists())
         self.assertEqual(len(git("worktree", "list").splitlines()), 1)
@@ -1038,6 +1049,63 @@ print(json.dumps(data))
         self.assertEqual(sorted(p.name for p in folder.iterdir()), sorted(
             [f"brief-{self.slug}.md", f"decision-{self.slug}.md", f"decisions-{self.slug}.html",
              f"metrics-{self.slug}.json"] + [f"{a}-{self.slug}.md" for a in self.engine.AGENTS]))
+
+    def test_voltron_plan_splits_parts_from_the_uncommitted_working_tree(self):
+        repo = self.root / "parts"
+        repo.mkdir()
+        git = lambda *args: subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t"]
+                                           + list(args), check=True, capture_output=True, text=True).stdout
+        git("init", "-q")
+        (repo / "api").mkdir()
+        (repo / "ui").mkdir()
+        (repo / "api" / "a.py").write_text("a = 1\n")
+        (repo / "ui" / "b.py").write_text("b = 1\n")
+        git("add", "-A")
+        git("commit", "-qm", "init")
+        (repo / "types.py").write_text("Limit = int\n")  # the Elder's uncommitted shared scaffold
+        status_before = git("status", "--porcelain")
+        plan = self.root / "plan.json"
+        plan.write_text(json.dumps(dict(mode="parts", task="Build the payment flow.", lions=[
+            dict(name="codex", task="Write the API.", model="gpt-x", effort="high", owns=["api"]),
+            dict(name="agy", task="Write the UI.", owns=["ui"])])))
+        seen = {}
+
+        def execute(jobs, directory, cancelled=None):
+            for job in jobs:
+                seen[job["name"]] = job
+                worktree = Path(job["cwd"])
+                self.assertEqual((worktree / "types.py").read_text(), "Limit = int\n")
+                (worktree / ("api" if job["name"] == "codex" else "ui") / "x.py").write_text("x = 1\n")
+                if job["name"] == "antigravity":
+                    (worktree / "types.py").write_text("Limit = str\n")  # outside its part
+            return [dict(name=j["name"], agent=j["agent"], status="success") for j in jobs]
+        with patch.object(self.engine.runner, "execute_jobs", side_effect=execute):
+            summary = self.engine.voltron(None, "claude", repo, access="edit", plan_path=plan)
+        self.assertEqual(summary["mode"], "parts")
+        self.assertEqual(sorted(seen), ["antigravity", "codex"])  # only the plan's lions run
+        self.assertEqual((seen["codex"]["model"], seen["codex"]["effort"]), ("gpt-x", "high"))
+        self.assertIn("Your part:\nWrite the API.", seen["codex"]["prompt"])
+        self.assertIn("Build the payment flow.", seen["codex"]["prompt"])
+        self.assertIn("Change only these paths: api.", seen["codex"]["prompt"])
+        jobs = {j["name"]: j for j in summary["jobs"]}
+        self.assertEqual(jobs["codex"]["outside_owns"], [])
+        self.assertEqual(jobs["antigravity"]["outside_owns"], ["types.py"])
+        diff = Path(jobs["codex"]["diff_path"]).read_text()
+        self.assertIn("api/x.py", diff)
+        self.assertNotIn("types.py", diff)  # the scaffold is in the base, not in a lion's diff
+        self.assertEqual(git("status", "--porcelain"), status_before)  # the user's checkout is untouched
+        self.engine.voltron_clean(summary["run_dir"])
+        for bad in (dict(mode="parts", lions=[dict(name="codex")]),
+                    dict(mode="same", task="t", lions=[dict(name="codex", task="mine")]),
+                    dict(mode="same", lions=[dict(name="codex")]),
+                    dict(mode="parts", task="t", lions=[dict(name="codex", task="x", owns=["../out"])]),
+                    dict(mode="both", lions=[dict(name="codex")])):
+            plan.write_text(json.dumps(bad))
+            with self.assertRaises(ValueError):
+                self.engine.load_plan(plan)
+        plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="claude")])))
+        with self.assertRaisesRegex(ValueError, "not available"):  # the Elder is never a lion
+            self.engine.voltron(None, "claude", repo, plan_path=plan)
 
 
 if __name__ == "__main__":
