@@ -2,7 +2,7 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
-## Unreleased
+## 0.2.2
 
 ### Changed
 - A lion that fails now reports its CLI's own last message, such as a quota error, not only an exit code.

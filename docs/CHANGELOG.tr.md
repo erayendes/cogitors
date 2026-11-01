@@ -2,7 +2,7 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
-## Yayınlanmamış
+## 0.2.2
 
 ### Değişenler
 - Başarısız olan bir aslan artık yalnızca çıkış kodunu değil, CLI'sının son mesajını da (örneğin bir kota hatası) bildiriyor.
