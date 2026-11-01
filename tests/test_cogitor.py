@@ -1081,6 +1081,7 @@ print(json.dumps(data))
             return [dict(name=j["name"], agent=j["agent"], status="success") for j in jobs]
         with patch.object(self.engine.runner, "execute_jobs", side_effect=execute):
             summary = self.engine.voltron(None, "claude", repo, access="edit", plan_path=plan)
+        self.assertFalse(any("quota" in j for j in summary["jobs"]))
         self.assertEqual(summary["mode"], "parts")
         self.assertEqual(sorted(seen), ["antigravity", "codex"])  # only the plan's lions run
         self.assertEqual((seen["codex"]["model"], seen["codex"]["effort"]), ("gpt-x", "high"))
@@ -1106,6 +1107,22 @@ print(json.dumps(data))
         plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="claude")])))
         with self.assertRaisesRegex(ValueError, "not available"):  # the Elder is never a lion
             self.engine.voltron(None, "claude", repo, plan_path=plan)
+        # A quota error is marked so the Elder can rerun that part on another model of the same CLI.
+        plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy")])))
+        errors = {"codex": "CLI exited with code 3: Individual quota reached. Resets in 17h", "antigravity": "CLI exited with code 2: bad flag"}
+        with patch.object(self.engine.runner, "execute_jobs", side_effect=lambda jobs, d, cancelled=None: [
+                dict(name=j["name"], agent=j["agent"], status="failed", error=errors[j["name"]]) for j in jobs]):
+            summary = self.engine.voltron(None, "claude", repo, plan_path=plan)
+        self.assertEqual({j["name"]: j.get("quota", False) for j in summary["jobs"]}, {"codex": True, "antigravity": False})
+        self.engine.voltron_clean(summary["run_dir"])
+        # Partial success exits 0; only a run where no lion succeeded is a failure.
+        plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy")])))
+        for statuses, code in ((("success", "failed"), 0), (("failed", "timeout"), 1)):
+            outcome = dict(jobs=[dict(name=n, status=st) for n, st in zip(("codex", "antigravity"), statuses)])
+            with patch.object(self.engine, "voltron", return_value=outcome), \
+                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--plan", str(plan)]), \
+                    patch("builtins.print"):
+                self.assertEqual(self.engine.main(), code)
 
 
 if __name__ == "__main__":

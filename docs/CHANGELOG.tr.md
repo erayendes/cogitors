@@ -2,6 +2,14 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
+## Yayınlanmamış
+
+### Değişenler
+- Başarısız olan bir aslan artık yalnızca çıkış kodunu değil, CLI'sının son mesajını da (örneğin bir kota hatası) bildiriyor.
+- `cogitors voltron`, en az bir aslan başarılı olduysa 0 ile çıkıyor; kısmi bir çalışma artık başarısız gibi görünmüyor.
+- `/voltron` her zaman Voltron'u oluşturmaktan söz ediyor.
+- Modelinin kotası dolan aslan `quota` olarak işaretleniyor; Elder onun parçasını aynı CLI'nin başka bir modeliyle bir kez yeniden çalıştırıyor ve bunu size söylüyor.
+
 ## 0.2.1
 
 ### Yeni

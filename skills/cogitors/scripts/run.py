@@ -301,6 +301,31 @@ def parse_response(agent, path):
     return dict(session_id=session, response=response, usage=usage)
 
 
+def cli_error(stdout_path, stderr_path):
+    """The CLI's own last word on a failure, such as a quota message, from its JSON or its stderr."""
+    try:
+        with open(stdout_path, "rb") as source:
+            source.seek(max(0, os.path.getsize(stdout_path) - 65536))
+            data = json.loads(source.read().decode("utf-8", "replace"))
+        if isinstance(data, dict):
+            # Claude reports its error as the result text; the others name it error or message.
+            for key in ("error", "message") + (("result",) if data.get("is_error") is True else ()):
+                if isinstance(data.get(key), str) and data[key].strip():
+                    return " ".join(data[key].split())[:300]
+    except (OSError, ValueError):
+        pass
+    for path in (stderr_path, stdout_path):
+        try:
+            with open(path, "rb") as source:
+                source.seek(max(0, os.path.getsize(path) - 4096))
+                lines = [line.strip() for line in source.read().decode("utf-8", "replace").splitlines() if line.strip()]
+        except OSError:
+            continue
+        if lines:
+            return lines[-1][:300]
+    return ""
+
+
 def stop_group(process):
     # Each launcher owns a new POSIX session; never signal another job's group.
     try:
@@ -384,7 +409,8 @@ def run_job(job, directory, cancelled):
             if os.path.getsize(result["stdout_path"]) > MAX_OUTPUT_BYTES or os.path.getsize(result["stderr_path"]) > MAX_OUTPUT_BYTES:
                 raise ValueError("subprocess output exceeded maximum allowed size (%s bytes)" % MAX_OUTPUT_BYTES)
         if process.returncode != 0:
-            raise ValueError("CLI exited with code %s" % process.returncode)
+            detail = cli_error(result["stdout_path"], result["stderr_path"])
+            raise ValueError("CLI exited with code %s%s" % (process.returncode, ": " + detail if detail else ""))
         result.update(parse_response(agent, result["stdout_path"]), status="success")
     except Exception as exc:
         if process is not None and (process.poll() is None or isinstance(exc, (TimeoutError, InterruptedError))):

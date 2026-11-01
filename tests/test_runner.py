@@ -241,6 +241,10 @@ class RunnerCheck(unittest.TestCase):
                 self.assertEqual(completed.returncode, 1)
                 self.assertTrue(all(r["status"] == "failed" and r.get("error")
                                     for r in self.results(completed)))
+        # A failing CLI's own last word reaches the result, not just its exit code.
+        completed = self.invoke(self.jobs("nonzero"))
+        self.assertTrue(all(r["error"].endswith("CLI exited with code 7: retained stderr")
+                            for r in self.results(completed)))
         (self.bin / "codex").unlink()
         completed = self.invoke(self.jobs()[:1])
         self.assertEqual(completed.returncode, 2)

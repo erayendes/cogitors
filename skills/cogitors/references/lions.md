@@ -44,11 +44,13 @@ python3 /actual/installed-skill/scripts/cogitor.py voltron --elder ELDER --plan 
 - `--check` (with the same `--plan`) checks every planned lion's login and calls no model. If a lion fails it, nothing runs: name the lion and its reason, then drop it from the plan or `--exclude` it.
 - `review` access: lions read the project in their read-only or plan modes, which are not an OS-level guarantee. `edit` (needs a git repository): each lion gets its own detached git worktree from a snapshot of the working tree as it is now, uncommitted and untracked files included, starting in the same subdirectory as `--cwd`; the user's branch, index and files stay untouched.
 - The timeout is per lion, at most 3600 seconds. Run in the background.
-- Exit code 1 only means some lion failed; the JSON on stdout is still the result, and its `run_dir` is needed for cleanup.
+- The command exits 0 when at least one lion succeeded and 1 only when none did; either way the JSON on stdout is the result, and its `run_dir` is needed for cleanup.
 
 ## Read every result
 
-Each job's `result_path` holds its `response`; a failed job's `status` (`failed`, `timeout`, `cancelled`) and `error` give the reason. For `edit`, each job has `diff_path` and `changed` (and `diff_error` when its diff could not be taken); in `parts` mode `outside_owns` lists files a lion changed outside its part. This step is done when every lion's result is read and every failed lion is named with its reason. A failed lion stays failed, with no automatic retry or substitute model.
+Each job's `result_path` holds its `response`; a failed job's `status` (`failed`, `timeout`, `cancelled`) and `error` give the reason, with the CLI's own last message (a quota or login error, for example) after the exit code. For `edit`, each job has `diff_path` and `changed` (and `diff_error` when its diff could not be taken); in `parts` mode `outside_owns` lists files a lion changed outside its part. This step is done when every lion's result is read and every failed lion is named with its reason.
+
+A job marked `quota` hit its model's quota or rate limit. Rerun that lion's part once, on another model of the same CLI that `cogitor.py models` lists (for example `gemini-3.8-flash-high` when `gemini-4-argon-high` is out), with a plan holding only that lion, and tell the user which model replaced which and why. Clean both runs when done. Every other failure stays failed: name it, and continue with the lions that succeeded.
 
 Apply a diff from the repository root with `git apply --check DIFF`, then `git apply DIFF`. Apply only what the user's request authorized and leave it uncommitted unless the user asks for a commit.
 

@@ -2,6 +2,14 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
+## Unreleased
+
+### Changed
+- A lion that fails now reports its CLI's own last message, such as a quota error, not only an exit code.
+- `cogitors voltron` exits 0 when at least one lion succeeded, so a partial run no longer looks like a failure.
+- `/voltron` always speaks of forming Voltron.
+- A lion that hits its model's quota is marked `quota`; the Elder reruns its part once on another model of the same CLI and says so.
+
 ## 0.2.1
 
 ### New

@@ -5,7 +5,7 @@ description: Use when the user invokes /voltron or explicitly asks to form Voltr
 
 # Voltron
 
-Form Voltron: the Elder splits the job at hand into parts, each lion builds one part at the same time, and the Elder joins the parts into one working whole. Read [lions](references/lions.md) first, for who the lions are, choosing models, the plan format, running and reading results; in a repository checkout it is `../cogitors/references/lions.md`.
+Voltron is **formed**, the way the lions join into one robot: in every status line and summary the verb is *form* (Turkish *oluşturmak*: "Voltron oluşturuyoruz", "Voltron oluşturuldu"). The Elder splits the job at hand into parts, each lion builds one part at the same time, and the Elder joins the parts into one working whole. Read [lions](references/lions.md) first, for who the lions are, choosing models, the plan format, running and reading results; in a repository checkout it is `../cogitors/references/lions.md`.
 
 ## Form Voltron
 

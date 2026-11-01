@@ -2737,6 +2737,9 @@ def load_plan(path):
     return plan
 
 
+QUOTA_ERROR = re.compile(r"quota|rate.?limit|usage limit|RESOURCE_EXHAUSTED|\b429\b", re.I)
+
+
 def plan_jobs(plan, elder, cwd, exclude=()):
     """Jobs for the plan's lions, each with its own prompt, model and effort."""
     available = {lion["name"]: lion for lion in voltron_lions(elder, cwd, exclude)}
@@ -2810,6 +2813,8 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
     for job, result in zip(jobs, results):
         entry = {k: result.get(k) for k in ("name", "agent", "model", "effort", "status", "error",
                                             "result_path", "duration_seconds")}
+        if result.get("status") != "success" and QUOTA_ERROR.search(result.get("error") or ""):
+            entry["quota"] = True  # the Elder may rerun this part once on another model of the same CLI
         if access == "edit":
             worktree = directory / "worktrees" / job["name"]
             entry.update(worktree=str(worktree), diff_path=str(directory / (job["name"] + ".diff")))
@@ -3256,6 +3261,9 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         if result.get("interrupted"):
             return 128 + result["interrupted"]
+        if args.command == "voltron" and "jobs" in result:
+            # Lions that succeeded are a result; only a run where none did is a failure.
+            return int(not any(job["status"] == "success" for job in result["jobs"]))
         return int(bool(result.get("export_error")) or
                    result.get("status") in
                    ("awaiting-partial-decision", "blocked", "partial") or
