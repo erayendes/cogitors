@@ -2,7 +2,7 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
-## Unreleased
+## 0.3.0
 
 ### Added
 - `cogitors quota` shows each lion's remaining quota without a model call, network or token read. Claude lions read a status-line snapshot (`usage` in `~/.cogitors/config.json`), Codex lions the latest account-wide reading of their newest session files; Antigravity only has cooldowns.

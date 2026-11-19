@@ -2,7 +2,7 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
-## Yayınlanmadı
+## 0.3.0
 
 ### Eklenenler
 - `cogitors quota`, her aslanın kalan kotasını model çağırmadan, ağa çıkmadan ve token okumadan gösterir. Claude aslanları bir status-line anlık görüntüsünü (`~/.cogitors/config.json` içindeki `usage`), Codex aslanları en yeni oturum dosyalarındaki en son hesap geneli ölçümü okur; Antigravity için yalnızca cooldown vardır.
