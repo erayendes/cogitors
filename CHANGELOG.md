@@ -2,6 +2,25 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
+## Unreleased
+
+### Added
+- `cogitors quota` shows each lion's remaining quota without a model call, network or token read. Claude lions read a status-line snapshot (`usage` in `~/.cogitors/config.json`), Codex lions the latest account-wide reading of their newest session files; Antigravity only has cooldowns.
+- A quota ledger, `~/.cogitors/quota.json`, records a cooldown when a lion hits a definite quota error.
+- Routing tiers: a plan lion may carry `tier` (`light`, `standard`, `deep`); its model and effort come from `routing` in the config unless the plan sets them.
+- `/voltron` and `/lions` may be proposed by the Elder on its own, but it asks first.
+- A routing tier may be an ordered fallback list of lions; `quota --json` shows each step's state under `fallbacks`.
+- Each `voltron` run appends one line per lion to `~/.cogitors/runs.jsonl` (no prompts, answers or errors); `cogitors metrics` summarizes time, success and quota rates per lion and model.
+- `/voltron` and `/lions` briefs carry handoff contracts and name what does not count as done; only a finding backed by evidence blocks, and agreement within one model family is not verification.
+
+### Changed
+- `cogitors voltron` refuses a lion whose quota is exhausted, naming the lion and its reset time, before any model runs.
+- A lion's part after a definite quota error goes to another capable lion with room (another account of the same CLI included), not only to another model of the same CLI.
+- A failed Codex run now reports Codex's own error message instead of a closing stderr line.
+- An old-style config (bare `{agent: options}`) keeps its saved models when `usage` or `routing` is added beside them.
+- Antigravity's offline fallback model list no longer defaults to Argon; the default is `gemini-4-neon-high`.
+- `cogitors` itself stays strict: no automatic retry, no model or account switch.
+
 ## 0.2.2
 
 ### Changed

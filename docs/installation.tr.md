@@ -26,6 +26,24 @@ Altı skill'in hepsini kurun; `/codex`, `/claude`, `/antigravity`, `/voltron` ve
 
 Bir hesap kendi `model` ve `effort` değerini de belirleyebilir; belirlemezse kayıtlı modeller kullanılır. Voltron'u oluşturan beş aslan gibi, aynı anda en fazla beş aslan çalışır; `--exclude AD` bir aslanı dışarıda bırakır. `cogitor.py voltron --elder claude --check` model çağırmadan aslanları listeler ve girişlerini kontrol eder.
 
+## Kota ve Yönlendirme (isteğe bağlı)
+
+`cogitor.py quota [--json]` her aslanın kalan kotasını gösterir; model çağırmaz, ağa çıkmaz, token okumaz. `~/.cogitors/config.json` içindeki iki isteğe bağlı bölüm bunu besler:
+
+```json
+{"usage": {"claude": "~/.claude/statusline-usage.json"},
+ "routing": {"light": {"codex": {"model": "gpt-6-luna", "effort": "low"}},
+             "deep": {"codex": {"model": "gpt-6.2-astra", "effort": "high"}}}}
+```
+
+* `usage`, bir Claude aslanını (`claude` ya da bir Claude hesabı) durum çubuğunuzun yazdığı Claude Code status-line JSON anlık görüntüsüne bağlar. Dosyada `rate_limits.five_hour` ve `rate_limits.seven_day` bulunur; her biri `used_percentage` ve `resets_at` (epoch saniye) içerir, pencerelerden biri eksik olabilir. Durum çubuğu yalnızca etkileşimli oturumlarda çalışır; yalnızca aslan olarak kullanılan bir hesabın anlık görüntüsü eskir ve `unknown` görünür. Her hesaba ayrı bir yol verin (örneğin `CLAUDE_CONFIG_DIR`'e göre).
+* `routing`, bir katmanı (`light`, `standard`, `deep`) ve bir ajanı (`codex`, `claude`, `antigravity`) bir `model` ve `effort` değerine bağlar; tüm alanlar isteğe bağlıdır. Planda `tier` taşıyan aslan modelini ve effort'unu buradan alır; plandaki açık `model` ya da `effort` önceliklidir. Bir katman sıralı bir yedek listesi de olabilir, `[{"lion": "codex", "model": "...", "effort": "high"}, {"lion": "claude", "model": "opus"}]`: plandaki aslan kendi adımının ayarlarını alır, kesin bir kota hatasından sonra Elder parçayı kotası tükenmemiş ve kendisi olmayan ilk adıma verir. Liste sırası, kotası en erken yenilenen aslanı seçme kuralından önce gelir. `quota --json` her listeyi `fallbacks` altında gösterir.
+* Codex için ayar gerekmez: kota, yerleşik `codex` aslanı için `~/.codex`, ek hesaplar için hesabın `config_dir` klasöründeki `sessions/` altında en yeni altı `rollout-*.jsonl` dosyasındaki en son hesap geneli ölçümden (`limit_id` `codex`) okunur.
+* Antigravity'nin okunabilir kotası yoktur; yalnızca bekleme süreleri (cooldown) uygulanır.
+* Bir aslan kesin bir kota hatası alırsa motor, `~/.cogitors/quota.json` dosyasına (mod 0600) bir cooldown yazar; süreyi hata metnindeki sıfırlanma zamanından alır, yoksa bir saat varsayar; daha uzun bir kayıt varsa o korunur, süre belirtmeyen bir 429 ya da bir dakikadan kısa süren geçici kısıtlama kaydedilmez. Dosyada hata metninin tamamı değil, yalnızca kota ifadesi tutulur. Süresi dolan cooldown'lar yok sayılır; hepsini temizlemek için dosyayı silin.
+
+`cogitor.py voltron`, kotası tükenmiş bir plan aslanını hiçbir model çalışmadan reddeder. Her çalışma, `~/.cogitors/runs.jsonl` dosyasına aslan başına bir satır ekler (ayarlar, durum, süre, varsa usage, yoksa `unknown`; istem, yanıt ya da hata metni yazılmaz). `cogitor.py metrics` bunu aslan ve model başına ortalama süre, başarı ve kota oranı olarak özetler.
+
 ## Tanı (Doctor)
 
 Tüm CLI araçlarının kurulu, giriş yapılmış ve meclis oturumuna hazır olduğunu doğrulamak için:

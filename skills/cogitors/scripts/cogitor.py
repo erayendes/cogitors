@@ -3,6 +3,7 @@
 
 import argparse
 import datetime
+import fcntl
 import hashlib
 import html
 import json
@@ -2204,10 +2205,10 @@ def read_config_file(path):
 
 
 def config_models(data):
-    """Saved models; an old file is a bare {agent: options} object."""
+    """Saved models; an old file is a bare {agent: options} object, maybe beside newer sections."""
     if "models" in data:
         return data["models"] if isinstance(data["models"], dict) else {}
-    return data if set(data) <= set(AGENTS) else {}
+    return {k: v for k, v in data.items() if k in AGENTS}
 
 
 def read_config(cwd=None):
@@ -2292,9 +2293,9 @@ def get_available_models_catalog():
             "default_effort": None,
         },
         "antigravity": {
-            "models": [("gemini-4-argon-high", "Gemini 4 Argon (High)"),
+            "models": [("gemini-4-neon-high", "Gemini 4 Neon (High)"),
                        ("gemini-3.8-flash-high", "Gemini 3.8 Flash (High)")],
-            "default": "gemini-4-argon-high",
+            "default": "gemini-4-neon-high",
             "efforts": effort_choices("antigravity"),
             "default_effort": "high",
         }
@@ -2625,13 +2626,16 @@ ELDER_ALIASES = {"agy": "antigravity"}
 
 
 DEFAULT_ACCOUNT_DIRS = {"codex": Path.home() / ".codex", "claude": Path.home() / ".claude"}
+TIERS = ("light", "standard", "deep")
+MAX_RESET = 253402300799  # last whole UTC second datetime can display
 
 
-def voltron_lions(elder, cwd=None, exclude=()):
-    """Every CLI and extra account except the Elder's own session and excluded names."""
-    models = load_default_config(cwd)
-    # Accounts point a CLI at a config directory, so only the user's global file may define them.
-    accounts = read_config_file(GLOBAL_CONFIG_PATH).get("accounts", {})
+def lion_config(cwd):
+    """Only the global config can select accounts, usage files and routing tiers."""
+    config = read_config_file(GLOBAL_CONFIG_PATH)
+    local = read_config_file(Path(cwd) / LOCAL_CONFIG_NAME) if cwd else {}
+    models = config_models(local or config)
+    accounts = config.get("accounts", {})
     if not isinstance(accounts, dict):
         raise ValueError("config accounts must be an object of {name: {agent, config_dir}}")
     # Built-in Codex and Claude run on their default account, whatever the host exports.
@@ -2658,6 +2662,48 @@ def voltron_lions(elder, cwd=None, exclude=()):
         for key in ("model", "effort"):
             if key not in lion and defaults.get(key):
                 lion[key] = defaults[key]
+    usage = config.get("usage", {})
+    if not isinstance(usage, dict):
+        raise ValueError("config usage must be an object of {Claude lion: snapshot path}")
+    claude = {lion["name"] for lion in lions if lion["agent"] == "claude"}
+    for name, path in usage.items():
+        if name not in claude or not isinstance(path, str) or not path.strip() or "\0" in path:
+            raise ValueError("usage %s needs a Claude lion name and a snapshot path" % name)
+    routing = config.get("routing", {})
+    if not isinstance(routing, dict):
+        raise ValueError("config routing must be an object of tiers")
+    def check_options(label, agent, options):
+        if "model" in options and not (isinstance(options["model"], str) and options["model"].strip()
+                                       and "\0" not in options["model"]):
+            raise ValueError("routing %s model must be nonempty text without NUL" % label)
+        if "effort" in options and options["effort"] not in effort_choices(agent):
+            raise ValueError("routing %s effort is unsupported" % label)
+
+    by_name = {lion["name"]: lion for lion in lions}
+    for tier, agents in routing.items():
+        if tier not in TIERS or not isinstance(agents, (dict, list)):
+            raise ValueError("routing tier %s must be light, standard or deep with an object or an ordered list" % tier)
+        if isinstance(agents, list):  # an ordered fallback list of lions
+            seen = set()
+            for item in agents:
+                name = item.get("lion") if isinstance(item, dict) and isinstance(item.get("lion"), str) else None
+                name = ELDER_ALIASES.get(name, name)
+                if name not in by_name or name in seen or set(item) - {"lion", "model", "effort"}:
+                    raise ValueError("routing %s list items need a distinct known lion and optional model and effort"
+                                     % tier)
+                seen.add(name)
+                check_options("%s/%s" % (tier, name), by_name[name]["agent"], item)
+            if not seen:
+                raise ValueError("routing %s list is empty" % tier)
+            continue
+        for agent, options in agents.items():
+            if agent not in AGENTS or not isinstance(options, dict) or set(options) - {"model", "effort"}:
+                raise ValueError("routing %s/%s needs a known agent and optional model and effort" % (tier, agent))
+            check_options("%s/%s" % (tier, agent), agent, options)
+    return lions, usage, routing
+
+
+def select_lions(lions, elder, exclude, limit=True):
     names = [w["name"] for w in lions]
     elder = ELDER_ALIASES.get(elder, elder)
     exclude = {ELDER_ALIASES.get(n, n) for n in exclude}
@@ -2667,9 +2713,317 @@ def voltron_lions(elder, cwd=None, exclude=()):
     chosen = [w for w in lions if w["name"] != elder and w["name"] not in exclude]
     if not chosen:
         raise ValueError("no lions left after the Elder and exclusions")
-    if len(chosen) > runner.MAX_JOBS:
+    if limit and len(chosen) > runner.MAX_JOBS:
         raise ValueError("at most %s lions run at once; exclude some with --exclude" % runner.MAX_JOBS)
     return chosen
+
+
+def voltron_lions(elder, cwd=None, exclude=()):
+    return select_lions(lion_config(cwd)[0], elder, exclude)
+
+
+def quota_pool(lion):
+    if lion["agent"] != "antigravity":
+        return "account"
+    model = lion.get("model")
+    for family in ("claude", "gemini"):
+        if isinstance(model, str) and model.startswith(family + "-"):
+            return family
+    return "other"
+
+
+def quota_window(limits, key, percent_key):
+    window = limits.get(key) if isinstance(limits, dict) else None
+    if isinstance(window, dict):
+        used, reset = window.get(percent_key), window.get("resets_at")
+        if type(used) in (int, float) and used >= 0 and \
+                type(reset) in (int, float) and 0 <= reset <= MAX_RESET:
+            return dict(used_percent=min(used, 100), resets_at=reset)  # an overrun is still exhausted
+    return None
+
+
+def parse_iso(text):
+    """An ISO time as epoch seconds; Python 3.9 needs 6 fraction digits, and no zone means UTC."""
+    text = re.sub(r"\.(\d{1,6})\d*", lambda m: "." + m[1].ljust(6, "0"), text.strip().replace("Z", "+00:00"))
+    text = re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", text)  # +0300 -> +03:00 for Python 3.9
+    moment = datetime.datetime.fromisoformat(text)
+    return (moment if moment.tzinfo else moment.replace(tzinfo=datetime.timezone.utc)).timestamp()
+
+
+def codex_limits(path):
+    """The last account-wide rate_limits event in one Codex session file, read line by line."""
+    found, unlabelled = None, None
+    with path.open("rb") as source:
+        for line in source:
+            if b'"rate_limits"' not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except (ValueError, RecursionError):
+                continue
+            payload = event.get("payload", event) if isinstance(event, dict) else None
+            limits = payload.get("rate_limits") if isinstance(payload, dict) else None
+            if not isinstance(limits, dict) or limits.get("limit_id") not in (None, "codex"):
+                continue  # another limit (a single model's, say) is not the account's
+            windows = {}
+            for key in ("primary", "secondary"):
+                window = quota_window(limits, key, "used_percent")
+                minutes = limits[key].get("window_minutes") if window else None
+                # Codex names its windows by order; their length says which is which.
+                slot = ("five_hour" if key == "primary" else "seven_day") if type(minutes) is not int \
+                    else ("five_hour" if minutes <= 1440 else "seven_day")
+                if window:
+                    windows[slot] = window
+            if windows:
+                if limits.get("limit_id") == "codex":
+                    found = (windows, event.get("timestamp"))
+                else:
+                    unlabelled = (windows, event.get("timestamp"))
+    return found or unlabelled  # an unlabelled reading never hides a labelled account one
+
+
+def codex_snapshot(home):
+    sessions = Path(home).expanduser() / "sessions"
+    files = []
+    for path in sessions.rglob("rollout-*.jsonl"):
+        try:
+            files.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
+    # Sessions overlap and a new one may not have written its limits yet: take the latest reading of the newest six.
+    best = None
+    for mtime, path in sorted(files, reverse=True)[:6]:
+        try:
+            found = codex_limits(path)
+        except OSError:
+            continue
+        if found:
+            windows, stamp = found
+            seen = mtime
+            if isinstance(stamp, str):
+                try:
+                    seen = parse_iso(stamp)
+                except (ValueError, OverflowError, OSError):
+                    pass
+            if best is None or seen > best[2]:
+                best = (windows.get("five_hour"), windows.get("seven_day"), seen, "codex-session")
+    if best:
+        return best
+    return None, None, None, "none"
+
+
+def quota_snapshot(lion, usage):
+    try:
+        if lion["agent"] == "codex":
+            # Like the runner, the built-in Codex lion is the default account, whatever CODEX_HOME says.
+            home = lion.get("config_dir") or DEFAULT_ACCOUNT_DIRS["codex"]
+            return codex_snapshot(home)
+        if lion["name"] in usage:
+            path = GLOBAL_CONFIG_PATH.parent / Path(usage[lion["name"]]).expanduser()
+            snapshot = read_json(path)
+            limits = snapshot.get("rate_limits") if isinstance(snapshot, dict) else None
+            five = quota_window(limits, "five_hour", "used_percentage")
+            seven = quota_window(limits, "seven_day", "used_percentage")
+            if five or seven:
+                return five, seven, path.stat().st_mtime, "statusline"
+    except (OSError, ValueError, RecursionError):
+        pass
+    return None, None, None, "none"
+
+
+def quota_cooldowns():
+    path = GLOBAL_CONFIG_PATH.with_name("quota.json")
+    if not path.exists():
+        return {}
+    data = read_config_file(path)
+    if data.get("schema") != "cogitor.quota.v1" or not isinstance(data.get("cooldowns"), dict):
+        raise ValueError("invalid cooldown ledger: %s" % path)
+    for key, item in data["cooldowns"].items():
+        if not isinstance(item, dict) or type(item.get("until")) not in (int, float) or \
+                not 0 <= item["until"] <= MAX_RESET:
+            raise ValueError("invalid cooldown for %s in %s" % (key, path))
+    return data["cooldowns"]
+
+
+def clock_reset(error, now):
+    """'resets 3pm (Europe/Istanbul)' or 'Try again at 3:14 PM': the next such time, local without a zone."""
+    match = re.search(r"\b(?:resets?(?:\s+at)?|try again at|retry at)\s+(\d{1,2})(?::(\d\d))?\s*([ap])\.?m\b\.?"
+                      r"(?:\s*\(([^)]+)\))?", error, re.I)
+    if not match or not 1 <= int(match[1]) <= 12 or int(match[2] or 0) > 59:
+        return None
+    zone = None
+    if match[4]:
+        try:
+            import zoneinfo
+            zone = zoneinfo.ZoneInfo(match[4].strip())
+        except (ImportError, ValueError, KeyError, OSError):
+            zone = datetime.timezone.utc if match[4].strip().upper() in ("UTC", "GMT") else None
+        if zone is None:
+            return None  # a zone we cannot resolve must not be read as local time
+    hour = int(match[1]) % 12 + (12 if match[3].lower() == "p" else 0)
+    today = datetime.datetime.fromtimestamp(now, zone).date() if zone else datetime.date.fromtimestamp(now)
+    for days in (0, 1):
+        day = today + datetime.timedelta(days=days)
+        # Built per day, so tomorrow gets tomorrow's offset across a DST change; no zone means local time.
+        moment = datetime.datetime(day.year, day.month, day.day, hour, int(match[2] or 0), tzinfo=zone).timestamp()
+        if moment > now:
+            return moment
+    return None
+
+
+def reset_time(error, now):
+    """When a quota error says its limit resets, or None when it says nothing usable; never a past or absurd time."""
+    candidates = []
+    units = {"ms": 0.001, "d": 86400, "h": 3600, "m": 60, "s": 1}
+    part = re.compile(r"(\d+(?:\.\d+)?)\s*(ms|milliseconds?|days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)"
+                      r"(?![a-z])\s*(?:,\s*|and\s+)?", re.I)
+    for match in re.finditer(r"\b(?:resets?|try again|retry)\s+(?:in|after)\s+", error, re.I):
+        delay, unit, found = 0, part.match(error, match.end()), False
+        while unit:
+            name = unit[2].lower()
+            delay += float(unit[1]) * units["ms" if name.startswith("ms") or name.startswith("milli") else name[0]]
+            found, unit = True, part.match(error, unit.end())
+        if found:
+            candidates.append(now + delay)
+            break
+    match = re.search(r"\bretry-after:\s*(\d+(?:\.\d+)?)\b", error, re.I)
+    if match:
+        candidates.append(now + float(match[1]))
+    match = re.search(r"\blimit reached\|(\d{9,12})\b", error, re.I)  # Claude: "usage limit reached|<epoch>"
+    if match:
+        candidates.append(int(match[1]))
+    match = re.search(r"\b(?:resets?|try again|retry) at\s+(\d{4}-\d\d-\d\d[T ]\d\d:\d\d(?::\d\d(?:\.\d+)?)?"
+                      r"(?:Z|[+-]\d\d:?\d\d)?)", error, re.I)
+    if match:
+        try:
+            candidates.append(parse_iso(match[1]))
+        except (ValueError, OverflowError, OSError):
+            pass
+    try:
+        candidates.append(clock_reset(error, now))
+    except (ValueError, OverflowError, OSError):
+        pass
+    for until in candidates:
+        if until is not None and now <= until <= MAX_RESET:
+            return until
+    return None
+
+
+def quota_reset(error, now):
+    """The reset an error states, else one hour from now."""
+    until = reset_time(error, now)
+    return math.ceil(until) if until is not None else min(now + 3600, MAX_RESET)
+
+
+THROTTLE = re.compile(r"\b429\b|too many requests|rate[-_ ]limit", re.I)
+
+
+def is_quota_failure(error, failed_at):
+    """A definite quota error: a stated reset over a minute away, or no stated reset and more than a throttle."""
+    match = QUOTA_ERROR.search(error or "")
+    if not match:
+        return False
+    until = reset_time(error, failed_at)
+    if until is None:
+        return not THROTTLE.search(match[0])  # a bare 429 or "rate limited" may clear in seconds
+    return until - failed_at > 60
+
+
+def record_cooldown(lion, error, now=None):
+    """Note a definite quota error; `now` is when it happened. A longer block for the pool is kept."""
+    path = GLOBAL_CONFIG_PATH.with_name("quota.json")
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # Lock a stable file: replacing the ledger changes its inode.
+    with os.fdopen(os.open(path.with_suffix(".lock"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        now = int(time.time() if now is None else now)
+        cooldowns = {k: v for k, v in quota_cooldowns().items() if v["until"] > now}
+        # Keep only the quota phrase: the full CLI message can carry paths or URLs.
+        match = QUOTA_ERROR.search(error)
+        # Without a model, agy picked its own default, so the block covers every pool it might have used.
+        for pool in lion_pools(lion):
+            key = lion["name"] + "/" + pool
+            until = max(quota_reset(error, now), cooldowns.get(key, {}).get("until", 0))
+            cooldowns[key] = dict(until=until, reason=(match[0] if match else "quota")[:80], seen=now)
+        fd, temp = tempfile.mkstemp(dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+                json.dump(dict(schema="cogitor.quota.v1", cooldowns=cooldowns), tmp, indent=2)
+                tmp.write("\n")
+            os.replace(temp, path)
+        finally:
+            Path(temp).unlink(missing_ok=True)
+
+
+def quota_entry(lion, pool, snapshot, cooldowns, now):
+    five, seven, seen, source = snapshot
+    until = cooldowns.get(lion["name"] + "/" + pool, {}).get("until", 0)
+    active = [w["used_percent"] for w in (five, seven) if w and w["resets_at"] > now]
+    if until > now or 100 in active:
+        state = "exhausted"
+    elif not active:
+        state = "unknown"
+    else:
+        state = "low" if max(active) > 90 else "ok"
+    return dict(name=lion["name"], agent=lion["agent"], pool=pool, five_hour=five, seven_day=seven,
+                state=state, source="cooldown" if until > now else source,
+                age_seconds=max(0, int(now - seen)) if seen is not None else None,
+                cooldown_until=until if until > now else None)
+
+
+def lion_pools(lion):
+    """The pools a job draws on; an Antigravity lion without a model may use any of them."""
+    return (quota_pool(lion),) if lion["agent"] != "antigravity" or lion.get("model") else ("claude", "gemini", "other")
+
+
+def quota_report(cwd):
+    lions, usage, routing = lion_config(cwd)
+    cooldowns = quota_cooldowns()
+    now = time.time()
+    entries = []
+    snapshots = {lion["name"]: quota_snapshot(lion, usage) for lion in lions}  # read once, so both sections agree
+    for lion in lions:
+        snapshot = snapshots[lion["name"]]
+        pools = ("claude", "gemini", "other") if lion["agent"] == "antigravity" else ("account",)
+        entries.extend(quota_entry(lion, pool, snapshot, cooldowns, now) for pool in pools)
+    # Each ordered fallback list with every step's state, so the Elder takes the first one not exhausted.
+    by_name = {lion["name"]: lion for lion in lions}
+    fallbacks = {}
+    for tier, items in routing.items():
+        if isinstance(items, list):
+            fallbacks[tier] = []
+            for item in items:
+                job = dict(by_name[ELDER_ALIASES.get(item["lion"], item["lion"])],
+                           **{k: item[k] for k in ("model", "effort") if k in item})
+                states = [quota_entry(job, pool, snapshots[job["name"]], cooldowns, now)["state"]
+                          for pool in lion_pools(job)]
+                fallbacks[tier].append(dict(item, state="exhausted" if "exhausted" in states else states[0]))
+    return dict(lions=entries, routing=routing, fallbacks=fallbacks)
+
+
+def quota_time(epoch):
+    return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def print_quota(report):
+    by_name = {}
+    for entry in report["lions"]:
+        fields = [entry["pool"] + " " + entry["state"]]
+        for key, label in (("five_hour", "5h"), ("seven_day", "7d")):
+            window = entry[key]
+            if window:
+                fields.append("%s %g%% used, resets %s" % (label, window["used_percent"], quota_time(window["resets_at"])))
+        if entry["cooldown_until"]:
+            fields.append("cooldown until " + quota_time(entry["cooldown_until"]))
+        if entry["age_seconds"] is not None:
+            fields.append("snapshot %ss old" % entry["age_seconds"])
+        if entry["source"] != "none":
+            fields.append(entry["source"])
+        by_name.setdefault(entry["name"], []).append(", ".join(fields))
+    for name, pools in by_name.items():
+        print("%s: %s" % (name, " | ".join(pools)))
+    for tier, steps in report.get("fallbacks", {}).items():
+        print("fallback %s: %s" % (tier, " -> ".join("%s %s" % (s["lion"], s["state"]) for s in steps)))
 
 
 def git(cwd, *args, raw=False, index=None, config=()):
@@ -2718,10 +3072,12 @@ def load_plan(path):
         raise ValueError("a same-mode plan needs the task every lion does")
     names = set()
     for lion in lions:
-        if not isinstance(lion, dict) or set(lion) - {"name", "task", "model", "effort", "owns"} \
+        if not isinstance(lion, dict) or set(lion) - {"name", "task", "model", "effort", "tier", "owns"} \
                 or not isinstance(lion.get("name"), str) or lion["name"] in names:
-            raise ValueError("each plan lion needs a distinct name; optional task, model, effort, owns")
+            raise ValueError("each plan lion needs a distinct name; optional task, model, effort, tier, owns")
         names.add(lion["name"])
+        if "tier" in lion and lion["tier"] not in TIERS:
+            raise ValueError("unknown plan tier %s for %s" % (lion["tier"], lion["name"]))
         part = lion.get("task")
         if plan["mode"] == "parts" and not (isinstance(part, str) and part.strip()):
             raise ValueError("lion %s needs its own task in a parts plan" % lion["name"])
@@ -2737,30 +3093,79 @@ def load_plan(path):
     return plan
 
 
-QUOTA_ERROR = re.compile(r"quota|rate.?limit|usage limit|RESOURCE_EXHAUSTED|\b429\b", re.I)
+QUOTA_ERROR = re.compile(
+    r"\b(?:RESOURCE_EXHAUSTED|insufficient_quota|rate_limit_(?:error|exceeded)|too many requests|rate[- ]limited)\b"
+    r"|(?<!disk )\b(?:quota|(?:rate|usage|weekly|daily|monthly|request|session|\d+-hour) limit)\s+"
+    r"(?:(?:has been|is)\s+)?(?:reached|exceeded|exhausted|hit)\b|\blimit reached\|\d+"
+    # "hit your limit", "exceeded your current quota", "reached the usage limit"; not "exceeded the limit of 32MB".
+    r"|\b(?:exceeded|hit|reached|exhausted)\s+(?:your\s+(?:(?:%(w)s)\s+)*|(?:the\s+)?(?:%(w)s)\s+(?:(?:%(w)s)\s+)*)"
+    r"(?:quota|limit)\b(?!\s+(?:of|on|for)\b)"
+    r"|\b(?:HTTP(?:/\d\.\d)?|status(?: code)?|code|error)[:= ]+429\b|(?:^|: )429\b"
+    r"|(?:^|: )(?:quota|rate[- ]limit|usage limit)(?: error)?[.!]?$"
+    % dict(w=r"account|usage|rate|current|weekly|daily|monthly|session|\d+-hour"), re.I)
 
 
 def plan_jobs(plan, elder, cwd, exclude=()):
     """Jobs for the plan's lions, each with its own prompt, model and effort."""
-    available = {lion["name"]: lion for lion in voltron_lions(elder, cwd, exclude)}
+    lions, usage, routing = lion_config(cwd)
+    available = {lion["name"]: lion for lion in select_lions(lions, elder, exclude, limit=False)}
+    cooldowns = quota_cooldowns()
+    now = time.time()
     jobs = []
-    for entry in plan["lions"]:
+    planless = "lions" not in plan
+    entries = [dict(name=name) for name in available] if planless else plan["lions"]
+    if len(entries) > runner.MAX_JOBS:  # the cap counts lions that run, not every configured account
+        raise ValueError("at most %s lions run at once; exclude some with --exclude" % runner.MAX_JOBS)
+    for entry in entries:
         name = ELDER_ALIASES.get(entry["name"], entry["name"])
         if name not in available:
             raise ValueError("plan lion %s is not available; lions are %s" % (name, ", ".join(available)))
         job = dict(available[name])
+        if "tier" in entry:
+            tier = entry["tier"]
+            if tier not in TIERS or tier not in routing:
+                raise ValueError("plan tier %s for %s is missing from routing" % (tier, name))
+            if isinstance(routing[tier], list):
+                step = [s for s in routing[tier] if ELDER_ALIASES.get(s["lion"], s["lion"]) == name]
+                if not step:
+                    raise ValueError("plan tier %s has no entry for lion %s in routing" % (tier, name))
+                job.update({k: step[0][k] for k in ("model", "effort") if k in step[0]})
+            elif job["agent"] not in routing[tier]:
+                raise ValueError("plan tier %s has no %s entry in routing for %s" % (tier, job["agent"], name))
+            else:
+                job.update(routing[tier][job["agent"]])
         job.update({k: entry[k] for k in ("model", "effort") if k in entry})
+        # An Antigravity lion without a model runs on agy's own default, whose family is unknown here.
+        pools = lion_pools(job)
+        snapshot = quota_snapshot(job, usage)
+        skip = False
+        for pool in pools:
+            quota = quota_entry(job, pool, snapshot, cooldowns, now)
+            if quota["state"] == "exhausted" and planless:
+                plan.setdefault("skipped", []).append("%s/%s" % (name, pool))  # "every lion" means every one with room
+                skip = True
+                break
+            if quota["state"] == "exhausted":
+                resets = [w["resets_at"] for w in (quota["five_hour"], quota["seven_day"])
+                          if w and w["used_percent"] == 100]
+                until = max(resets + [quota["cooldown_until"] or 0])
+                raise ValueError("lion %s/%s is exhausted until %s; give its part to another lion or drop it from "
+                                 "the plan" % (name, pool, quota_time(until)))
+        if skip:
+            continue
         if plan["mode"] == "parts":
             others = ", ".join(e["name"] for e in plan["lions"] if e is not entry)
             owns = entry.get("owns") or []
             prompt = ("You are one of several agents doing parts of one job at the same time" +
                       (" (the others: %s)" % others if others else "") + ". Do only your part." +
                       (" Change only these paths: %s." % ", ".join(owns) if owns else "") +
-                      "\n\n" + (plan["task"].strip() + "\n\n" if plan["task"].strip() else "") +
+                      "\n\n" + (plan["task"].strip() + "\n\n" if plan.get("task", "").strip() else "") +
                       "Your part:\n" + entry["task"].strip())
         else:
             prompt = plan["task"].strip()
-        jobs.append(dict(job, prompt=prompt, owns=entry.get("owns") or []))
+        jobs.append(dict(job, prompt=prompt, owns=entry.get("owns") or [], tier=entry.get("tier")))
+    if not jobs:
+        raise ValueError("every lion is out of quota: %s" % ", ".join(plan.get("skipped", [])))
     return jobs
 
 
@@ -2775,7 +3180,7 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
         task = read_text(task_path).strip()
         if not task:
             raise ValueError("task file is empty")
-        plan = dict(mode="same", task=task, lions=[dict(name=lion["name"]) for lion in voltron_lions(elder, cwd, exclude)])
+        plan = dict(mode="same", task=task)
     jobs = plan_jobs(plan, elder, cwd, exclude)
     if access == "edit":
         try:
@@ -2786,11 +3191,13 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
             job["prompt"] = ("Work only in the current directory. Do not commit, push or create branches; "
                              "leave your changes uncommitted.\n\n" + job["prompt"])
     owns = {job["name"]: job.pop("owns") for job in jobs}
+    tiers = {job["name"]: job.pop("tier") for job in jobs}
     jobs = [dict(job, cwd=str(cwd), access=access, timeout_seconds=timeout) for job in jobs]
     runner.preflight(jobs)
     directory = Path(tempfile.mkdtemp(prefix="voltron-")).resolve()
     summary = dict(run_dir=str(directory), cwd=str(cwd), elder=ELDER_ALIASES.get(elder, elder),
-                   mode=plan["mode"], access=access, worktrees=[])
+                   mode=plan["mode"], access=access, worktrees=[],
+                   **({"skipped": plan["skipped"]} if plan.get("skipped") else {}))
     write_json(directory / "voltron.json", summary)
     if access == "edit":
         try:
@@ -2808,13 +3215,20 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
     write_json(directory / "voltron.json", summary)
     results_dir = directory / "results"
     results_dir.mkdir(mode=0o700)
+    started = time.time()
     results, received = run_cancellable(jobs, results_dir)
     summary["jobs"] = []
     for job, result in zip(jobs, results):
         entry = {k: result.get(k) for k in ("name", "agent", "model", "effort", "status", "error",
                                             "result_path", "duration_seconds")}
-        if result.get("status") != "success" and QUOTA_ERROR.search(result.get("error") or ""):
-            entry["quota"] = True  # the Elder may rerun this part once on another model of the same CLI
+        failed_at = started + (result.get("duration_seconds") or 0)
+        # A throttle that clears within a minute is a plain failure, not an empty quota.
+        if result.get("status") == "failed" and is_quota_failure(result.get("error"), failed_at):
+            entry["quota"] = True
+            try:
+                record_cooldown(job, result["error"], failed_at)
+            except (OSError, ValueError) as exc:
+                entry["cooldown_error"] = str(exc)
         if access == "edit":
             worktree = directory / "worktrees" / job["name"]
             entry.update(worktree=str(worktree), diff_path=str(directory / (job["name"] + ".diff")))
@@ -2835,8 +3249,61 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
         summary["jobs"].append(entry)
     if received:
         summary["interrupted"] = received[0]
+    try:
+        log_runs(plan["mode"], jobs, results, summary["jobs"], tiers)
+    except OSError as exc:
+        summary["log_error"] = str(exc)[:300]
     write_json(directory / "voltron.json", summary)
     return summary
+
+
+def log_runs(mode, jobs, results, entries, tiers):
+    """One line per lion in ~/.cogitors/runs.jsonl: settings, outcome and time; never prompts, answers or errors."""
+    path = GLOBAL_CONFIG_PATH.with_name("runs.jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    now = int(time.time())
+    lines = []
+    for job, result, entry in zip(jobs, results, entries):
+        record = dict(time=now, mode=mode, lion=job["name"], agent=job["agent"], model=job.get("model"),
+                      effort=job.get("effort"), tier=tiers.get(job["name"]), status=result.get("status"),
+                      duration_seconds=result.get("duration_seconds"), usage=usage_counters(result.get("usage")))
+        if entry.get("quota"):
+            record["quota"] = True
+        lines.append(json.dumps(record, ensure_ascii=False) + "\n")
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as log:
+        log.write("".join(lines))
+
+
+def usage_counters(usage):
+    """Only top-level numeric counters: a provider's usage object can nest text, which never goes to disk."""
+    counters = {k: v for k, v in usage.items() if isinstance(k, str) and type(v) in (int, float)} \
+        if isinstance(usage, dict) else {}
+    return counters or "unknown"
+
+
+def runs_summary():
+    """Average time, success and quota rates per lion and model from runs.jsonl, to tune proposals by data."""
+    path = GLOBAL_CONFIG_PATH.with_name("runs.jsonl")
+    groups = {}
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.is_file() else []
+    for line in lines:
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get("lion"), str):
+            continue
+        group = groups.setdefault("%s/%s" % (record["lion"], record.get("model") or "default"),
+                                  dict(runs=0, success=0, quota=0, seconds=[]))
+        group["runs"] += 1
+        group["success"] += record.get("status") == "success"
+        group["quota"] += record.get("quota") is True
+        if type(record.get("duration_seconds")) in (int, float):
+            group["seconds"].append(record["duration_seconds"])
+    return {key: dict(runs=g["runs"], avg_seconds=round(sum(g["seconds"]) / len(g["seconds"]), 2) if g["seconds"] else None,
+                      success_rate=round(g["success"] / g["runs"], 2), quota_rate=round(g["quota"] / g["runs"], 2))
+            for key, g in sorted(groups.items())}
 
 
 def voltron_clean(run_dir):
@@ -3114,6 +3581,10 @@ def main():
     models_p = sub.add_parser("models", help="list detected CLIs and available/recommended models")
     models_p.add_argument("--json", action="store_true", help="output as JSON")
 
+    quota_p = sub.add_parser("quota", help="read local quota windows and cooldowns for every lion")
+    quota_p.add_argument("--json", action="store_true")
+    quota_p.add_argument("--cwd", type=Path, default=Path.cwd())
+
     cfg_p = sub.add_parser("configure", help="interactively or directly configure default participant models (Heimdall-style)")
     cfg_p.add_argument("--interactive", "-i", action="store_true", help="interactive selection menu")
     cfg_p.add_argument("--codex-model", help="default model for Codex advisor")
@@ -3143,7 +3614,7 @@ def main():
     vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Elder")
     vol_cmd.add_argument("--elder", required=True, help="the host's own lion name (codex, claude, agy or an account)")
     vol_cmd.add_argument("--file", type=Path, help="one task every lion does (or use --plan)")
-    vol_cmd.add_argument("--plan", type=Path, help="JSON plan: mode parts|same, task, lions [{name, task, model, effort, owns}]")
+    vol_cmd.add_argument("--plan", type=Path, help="JSON plan: mode parts|same, task, lions [{name, task, tier, model, effort, owns}]")
     vol_cmd.add_argument("--cwd", type=Path, default=Path.cwd())
     vol_cmd.add_argument("--access", choices=("review", "edit"), default="review")
     vol_cmd.add_argument("--timeout", type=float, default=900, help="seconds per lion (max 3600)")
@@ -3178,6 +3649,11 @@ def main():
         elif args.command == "models":
             res = models_cmd(as_json=args.json)
             return 0
+        elif args.command == "quota":
+            result = quota_report(args.cwd)
+            if not args.json:
+                print_quota(result)
+                return 0
         elif args.command == "configure":
             configure_cmd(interactive=args.interactive,
                           codex_model=args.codex_model, codex_effort=args.codex_effort,
@@ -3193,14 +3669,15 @@ def main():
         elif args.command == "export-html":
             result = export_html_cmd(args.run_dir)
         elif args.command == "metrics":
-            result = metrics_summary(args.dir)
+            result = dict(metrics_summary(args.dir), lions=runs_summary())
         elif args.command == "voltron":
             if args.check:
-                lions = (plan_jobs(load_plan(args.plan), args.elder, args.cwd, args.exclude) if args.plan
-                         else voltron_lions(args.elder, args.cwd, args.exclude))
-                lions = [{k: v for k, v in w.items() if k not in ("prompt", "owns")} for w in lions]
+                plan = load_plan(args.plan) if args.plan else dict(mode="same", task="check")
+                lions = plan_jobs(plan, args.elder, args.cwd, args.exclude)
+                lions = [{k: v for k, v in w.items() if k not in ("prompt", "owns", "tier")} for w in lions]
                 result = dict(runner.preflight([dict(w, cwd=str(args.cwd.resolve()), prompt="check")
-                                                for w in lions]), lions=lions)
+                                                for w in lions]), lions=lions,
+                              **({"skipped": plan["skipped"]} if plan.get("skipped") else {}))
             elif bool(args.file) == bool(args.plan):
                 raise ValueError("voltron needs exactly one of --file (one task) or --plan")
             else:

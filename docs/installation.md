@@ -26,6 +26,24 @@ Install all six skills; `/codex`, `/claude`, `/antigravity`, `/voltron` and `/li
 
 An account may also set its own `model` and `effort`; otherwise it uses the saved models. At most five lions run at once, like the five that form Voltron; `--exclude NAME` leaves one out. `cogitor.py voltron --elder claude --check` lists the lions and checks their logins without calling a model.
 
+## Quota and Routing (optional)
+
+`cogitor.py quota [--json]` shows each lion's remaining quota. It calls no model, uses no network and reads no token. Two optional sections of `~/.cogitors/config.json` feed it:
+
+```json
+{"usage": {"claude": "~/.claude/statusline-usage.json"},
+ "routing": {"light": {"codex": {"model": "gpt-6-luna", "effort": "low"}},
+             "deep": {"codex": {"model": "gpt-6.2-astra", "effort": "high"}}}}
+```
+
+* `usage` maps a Claude lion (`claude` or a Claude account) to a Claude Code status-line JSON snapshot that your status line writes. It holds `rate_limits.five_hour` and `rate_limits.seven_day`, each with `used_percentage` and `resets_at` (epoch seconds); either window may be missing. The status line runs only in interactive sessions, so an account used only as a lion keeps an old snapshot and reads as `unknown`; give each account its own path (for example by `CLAUDE_CONFIG_DIR`).
+* `routing` maps a tier (`light`, `standard`, `deep`) and an agent (`codex`, `claude`, `antigravity`) to a `model` and `effort`; every field is optional. A plan lion with a `tier` gets its model and effort from here; an explicit `model` or `effort` in the plan wins. A tier can also be an ordered fallback list, `[{"lion": "codex", "model": "...", "effort": "high"}, {"lion": "claude", "model": "opus"}]`: a plan lion takes its own step's settings, and after a definite quota error the Elder moves the part to the first step that is not exhausted and not the Elder itself. A list's order wins over the soonest-reset preference. `quota --json` shows each list under `fallbacks`.
+* Codex needs no setting: its quota is the latest account-wide reading (`limit_id` `codex`) among the six newest `rollout-*.jsonl` files under `sessions/` in `~/.codex` for the built-in `codex` lion, or in the account's `config_dir`.
+* Antigravity has no readable quota; only cooldowns apply to it.
+* When a lion hits a definite quota error, the engine records a cooldown in `~/.cogitors/quota.json` (mode 0600), using the reset time from the error text, or one hour if it gives none; a longer block already recorded is kept, and a bare 429 or a throttle that clears within a minute records nothing. It stores only the quota phrase, not the full error. Expired cooldowns are ignored; delete the file to clear them all.
+
+`cogitor.py voltron` refuses a plan lion whose quota is exhausted before any model runs. Each run appends one line per lion to `~/.cogitors/runs.jsonl` (settings, status, duration, usage or `unknown`; never prompts, answers or error text), and `cogitor.py metrics` summarizes it as average time, success and quota rates per lion and model.
+
 ## Diagnostics (Doctor)
 
 To confirm every CLI is installed, signed in and ready for a council session:

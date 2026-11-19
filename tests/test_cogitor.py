@@ -1,5 +1,6 @@
 """Offline checks for the real round controller; only the model boundary is fake."""
 
+import datetime
 import importlib.util
 import json
 import os
@@ -7,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -40,7 +42,12 @@ class CogitorCheck(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="cogitor-check-")
         self.root = Path(self.temp.name)
         self.global_config = self.root / "global-config.json"
-        isolated = patch.object(self.engine, "GLOBAL_CONFIG_PATH", self.global_config)
+        homes = {name: self.root / ("." + name) for name in ("codex", "claude")}
+        env = patch.dict(os.environ, HOME=str(self.root), CODEX_HOME=str(self.root / "codex-home"))
+        env.start()
+        self.addCleanup(env.stop)
+        isolated = patch.multiple(self.engine, GLOBAL_CONFIG_PATH=self.global_config, CONFIG_DIR=self.root,
+                                  DEFAULT_ACCOUNT_DIRS=homes)
         isolated.start()
         self.addCleanup(isolated.stop)
         self.brief = self.root / "task.md"
@@ -500,7 +507,8 @@ print(json.dumps(data))
 
 
     def test_doctor_command(self):
-        doc = self.engine.doctor(cwd=self.root, as_json=True)
+        with patch.object(self.engine.shutil, "which", return_value=None):
+            doc = self.engine.doctor(cwd=self.root, as_json=True)
         self.assertIn(doc["status"], ("ready", "degraded", "blocked"))
         self.assertIn("agents", doc)
         for agent in ("codex", "claude", "antigravity"):
@@ -610,6 +618,12 @@ print(json.dumps(data))
             catalog = self.engine.get_available_models_catalog()
         self.assertEqual(catalog["codex"]["default"], "gpt-6.1-sol")
         self.assertEqual(catalog["claude"]["default"], "sonnet")
+        self.assertEqual(catalog["antigravity"]["default"], "gemini-4-neon-high")
+        self.assertEqual([m[0] for m in catalog["antigravity"]["models"]], ["gemini-4-neon-high", "gemini-3.8-flash-high"])
+        self.assertIn("ultra", self.engine.effort_choices("codex"))
+        self.assertNotIn("ultra", self.engine.effort_choices("claude"))
+        for agent in ("codex", "claude", "antigravity"):
+            self.assertEqual(set(self.engine.effort_choices(agent)), self.engine.runner.EFFORTS[agent])
         listed = json.dumps({"models": [dict(slug="b", visibility="list", priority=2),
                                         dict(slug="hidden", visibility="hide", priority=0),
                                         dict(slug="a", visibility="list", priority=1, description="best")]})
@@ -622,7 +636,8 @@ print(json.dumps(data))
                 patch.object(self.engine.subprocess, "run",
                              return_value=subprocess.CompletedProcess([], 0, stdout=agy, stderr="")):
             self.assertEqual(self.engine.fetch_antigravity_models(), [("gemini-x-high", "Gemini X (High)")])
-        models_data = self.engine.models_cmd(as_json=True)
+        with patch.object(self.engine.shutil, "which", return_value=None):
+            models_data = self.engine.models_cmd(as_json=True)
         self.assertIn("codex", models_data["agents"])
         self.assertIn("available_models", models_data["agents"]["codex"])
 
@@ -709,11 +724,124 @@ print(json.dumps(data))
         with self.assertRaisesRegex(ValueError, "extension limit"):
             self.engine.extend_timeout(self.run_dir)
 
-    def test_effort_choices_follow_runner_including_ultra(self):
-        self.assertIn("ultra", self.engine.effort_choices("codex"))
-        self.assertNotIn("ultra", self.engine.effort_choices("claude"))
-        for agent in ("codex", "claude", "antigravity"):
-            self.assertEqual(set(self.engine.effort_choices(agent)), self.engine.runner.EFFORTS[agent])
+    def test_quota_snapshots_and_states(self):
+        accounts = {"extra": dict(agent="codex", config_dir=str(self.root / "extra")),
+                    "reviewer": dict(agent="claude", config_dir=str(self.root / "reviewer"))}
+        routing = {"standard": {"claude": {"effort": "medium"}}}  # no codex entry on purpose
+        self.global_config.write_text(json.dumps(dict(accounts=accounts, usage={"reviewer": "~/usage.json"}, routing=routing)))
+        sessions = self.root / ".codex" / "sessions" / "2026"  # the default account, not CODEX_HOME
+        sessions.mkdir(parents=True)
+        now = 1800000000
+        old = sessions / "rollout-old.jsonl"
+        new = sessions / "rollout-new.jsonl"
+        event = dict(payload=dict(rate_limits=dict(primary=dict(used_percent=100, window_minutes=300, resets_at=now + 10))))
+        old.write_text(json.dumps(event))
+        os.utime(old, (now - 50, now - 50))
+        event["payload"]["rate_limits"]["primary"]["used_percent"] = 90
+        event["payload"]["rate_limits"]["secondary"] = dict(used_percent=100, window_minutes=10080, resets_at=now)
+        new.write_bytes(b"x" * 1100000 + b"\n" + old.read_bytes() + b"\n" + json.dumps(event).encode() +
+                        b'\n{"rate_limits": null}\n{"rate_limits":\xff')
+        os.utime(new, (now - 10, now - 10))
+        snapshot = self.root / "usage.json"
+        snapshot.write_text(json.dumps({"rate_limits": {"seven_day": {"used_percentage": 95, "resets_at": now + 20}}}))
+        os.utime(snapshot, (now - 30, now - 30))
+        args = ["cogitor.py", "quota", "--cwd", str(self.root)]
+        with patch.object(self.engine.time, "time", return_value=now), \
+                patch.object(self.engine.subprocess, "run", side_effect=AssertionError("quota must be offline")), \
+                patch.object(sys, "argv", args + ["--json"]), patch("builtins.print") as output:
+            self.assertEqual(self.engine.main(), 0)
+            report = json.loads(output.call_args.args[0])
+            with patch.object(sys, "argv", args):
+                output.reset_mock()
+                self.assertEqual(self.engine.main(), 0)
+                self.assertEqual(output.call_count, 5)
+        self.assertEqual(report["routing"], routing)
+        by_lion = {(e["name"], e["pool"]): e for e in report["lions"]}
+        self.assertEqual(len(by_lion), 7)
+        codex = by_lion["codex", "account"]
+        self.assertEqual((codex["source"], codex["age_seconds"], codex["state"]), ("codex-session", 10, "ok"))
+        self.assertEqual(codex["five_hour"], dict(used_percent=90, resets_at=now + 10))
+        claude = by_lion["reviewer", "account"]
+        self.assertEqual((claude["source"], claude["age_seconds"], claude["state"]), ("statusline", 30, "low"))
+        self.assertIsNone(claude["five_hour"])
+        self.assertEqual(by_lion["extra", "account"]["state"], "unknown")  # never use another account's session
+        self.assertEqual(by_lion["antigravity", "gemini"]["state"], "unknown")
+        extra = self.root / "extra" / "sessions"
+        extra.mkdir(parents=True)
+        (extra / "rollout-extra.jsonl").write_bytes(old.read_bytes())
+        plan = dict(mode="same", task="check", lions=[dict(name="extra")])
+        with patch.object(self.engine.time, "time", return_value=now):
+            with self.assertRaisesRegex(ValueError, "extra/account.*" + self.engine.quota_time(now + 10)):
+                self.engine.plan_jobs(plan, "claude", self.root)
+            plan["lions"] = [dict(name="codex")]
+            self.assertEqual(self.engine.plan_jobs(plan, "claude", self.root)[0]["agent"], "codex")
+            plan["lions"] = [dict(name="codex", tier="standard")]
+            with self.assertRaisesRegex(ValueError, "tier standard has no codex entry"):
+                self.engine.plan_jobs(plan, "claude", self.root)
+        for used, reset, expected in ((0, now + 1, "ok"), (90, now + 1, "ok"), (90.1, now + 1, "low"),
+                                      (100, now + 1, "exhausted"), (100, now, "unknown")):
+            with self.subTest(used=used, reset=reset):
+                window = dict(used_percent=used, resets_at=reset)
+                entry = self.engine.quota_entry(dict(name="claude", agent="claude"), "account",
+                                                (window, None, now, "statusline"), {}, now)
+                self.assertEqual(entry["state"], expected)
+        # An overrun still reads as exhausted, not as missing data.
+        self.assertEqual(self.engine.quota_window({"w": {"used_percent": 104, "resets_at": 5}}, "w", "used_percent"),
+                         dict(used_percent=100, resets_at=5))
+        # Codex: windows by length, only the account-wide limit, the whole file, and older sessions as fallback.
+        home = self.root / "codex-check"
+        day = home / "sessions" / "2027"
+        day.mkdir(parents=True)
+        weekly = dict(used_percent=100, window_minutes=10080, resets_at=now + 99)
+        account = dict(limit_id="codex", primary=weekly, secondary=dict(used_percent=5, window_minutes=300, resets_at=now + 9))
+        other = dict(limit_id="codex_other", primary=dict(used_percent=0, window_minutes=300, resets_at=now + 9))
+        older = day / "rollout-older.jsonl"
+        unlabelled = dict(primary=dict(used_percent=0, window_minutes=300, resets_at=now + 9))
+        older.write_text(json.dumps(dict(payload=dict(rate_limits=account))) + "\n" +
+                         json.dumps(dict(payload=dict(rate_limits=other))) + "\n" +
+                         json.dumps(dict(payload=dict(rate_limits=unlabelled))) + "\n" + "y" * 1100000 + "\n")
+        # Written last but measured earlier: the latest reading wins, not the latest file.
+        stale = day / "rollout-stale.jsonl"
+        stale.write_text(json.dumps(dict(timestamp="2027-01-15T07:00:00Z", payload=dict(rate_limits=unlabelled))) + "\n")
+        os.utime(stale, (now - 1, now - 1))
+        os.utime(older, (now - 20, now - 20))
+        newest = day / "rollout-newest.jsonl"
+        newest.write_text(json.dumps(dict(type="session_meta")) + "\n")
+        os.utime(newest, (now - 5, now - 5))
+        five, seven, seen, source = self.engine.codex_snapshot(home)
+        self.assertEqual((five["used_percent"], seven["used_percent"], seen, source), (5, 100, now - 20, "codex-session"))
+        # An old-style bare {agent: options} config keeps its models beside the newer sections.
+        self.assertEqual(self.engine.config_models({"codex": {"model": "m"}, "usage": {}}), {"codex": {"model": "m"}})
+        # A tier may be an ordered fallback list of lions; quota shows each step's state in order.
+        fallback = [dict(lion="extra", model="m1", effort="high"), dict(lion="codex", model="m2")]
+        self.global_config.write_text(json.dumps(dict(accounts=accounts, routing=dict(deep=fallback))))
+        with patch.object(self.engine.time, "time", return_value=now):
+            report = self.engine.quota_report(self.root)
+            self.assertEqual(report["fallbacks"]["deep"], [dict(fallback[0], state="exhausted"), dict(fallback[1], state="ok")])
+            plan = dict(mode="same", task="t", lions=[dict(name="codex", tier="deep")])
+            self.assertEqual(self.engine.plan_jobs(plan, "claude", self.root)[0]["model"], "m2")
+            # --check hands only runner fields to the preflight, whatever plan_jobs adds.
+            plan_file = self.root / "tier-plan.json"
+            plan_file.write_text(json.dumps(plan))
+            validate = lambda jobs: self.engine.runner.validate_jobs(jobs) and dict(ready=True)
+            with patch.object(self.engine.runner, "preflight", side_effect=validate), \
+                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--check", "--plan",
+                                               str(plan_file), "--cwd", str(self.root)]), patch("builtins.print"):
+                self.assertEqual(self.engine.main(), 0)
+            plan["lions"] = [dict(name="reviewer", tier="deep")]
+            with self.assertRaisesRegex(ValueError, "no entry for lion reviewer"):
+                self.engine.plan_jobs(plan, "claude", self.root)
+        many = dict(accounts, **{n: dict(agent="claude", config_dir=str(self.root / n)) for n in ("one", "two")})
+        self.global_config.write_text(json.dumps(dict(accounts=many)))
+        self.assertEqual(len(self.engine.plan_jobs(dict(mode="same", task="t", lions=[dict(name="reviewer")]),
+                                                   "claude", self.root)), 1)  # the cap counts lions that run
+        with self.assertRaisesRegex(ValueError, "at most 5"):
+            self.engine.plan_jobs(dict(mode="same", task="t"), "claude", self.root)
+        for bad in ([], [dict(lion="nobody")], [dict(lion="codex"), dict(lion="codex")], [dict(lion="codex", extra=1)],
+                    [dict(lion=["codex"])]):
+            self.global_config.write_text(json.dumps(dict(accounts=accounts, routing=dict(deep=bad))))
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.engine.quota_report(self.root)
 
     def test_readme_test_counts_match_reality(self):
         guide = (Path(__file__).resolve().parent.parent / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
@@ -913,17 +1041,49 @@ print(json.dumps(data))
             self.engine.voltron(task, "claude", self.root, access="edit")
 
     def test_config_keeps_accounts_and_reports_a_damaged_project_file(self):
-        self.global_config.write_text(json.dumps({"accounts": {"w": {"agent": "codex", "config_dir": "/tmp"}}}))
+        config = dict(accounts={"w": {"agent": "codex", "config_dir": str(self.root / "extra")}},
+                      usage={"claude": "~/usage.json"}, routing={"light": {"codex": {"model": "fast", "effort": "low"}}})
+        self.global_config.write_text(json.dumps(config))
         self.assertEqual(self.engine.load_default_config(self.root), {})  # accounts are not model options
         self.engine.save_config({"codex": {"model": "m"}})
         saved = json.loads(self.global_config.read_text())
-        self.assertEqual(saved["accounts"], {"w": {"agent": "codex", "config_dir": "/tmp"}})
+        self.assertEqual({k: saved[k] for k in config}, config)
         self.assertEqual(self.engine.load_default_config(self.root), {"codex": {"model": "m"}})
         self.global_config.write_text(json.dumps({"codex": {"model": "old"}}))  # old bare format
         self.assertEqual(self.engine.load_default_config(), {"codex": {"model": "old"}})
         (self.root / ".cogitors.json").write_text("{broken")
         with self.assertRaisesRegex(ValueError, "cannot read"):
             self.engine.load_default_config(self.root)
+        (self.root / ".cogitors.json").write_text(json.dumps(dict(usage={"codex": "local"}, routing={"light": {}})))
+        entry = dict(name="w", tier="light")
+        plan = dict(mode="same", task="check", lions=[entry])
+        self.global_config.write_text(json.dumps(config))
+        def job():
+            return self.engine.plan_jobs(plan, "claude", self.root)[0]
+
+        self.assertEqual((job()["model"], job()["effort"]), ("fast", "low"))
+        entry["model"] = "explicit"
+        self.assertEqual((job()["model"], job()["effort"]), ("explicit", "low"))
+        entry["effort"] = "high"
+        self.assertEqual(job()["effort"], "high")
+        entry["tier"] = "deep"
+        with self.assertRaisesRegex(ValueError, "deep"):
+            job()
+        entry["tier"] = "giant"
+        path = self.root / "plan.json"
+        path.write_text(json.dumps(plan))
+        with self.assertRaisesRegex(ValueError, "giant"):
+            self.engine.load_plan(path)
+        for section, invalid, message in (("usage", [], "usage"), ("usage", {"w": "path"}, "usage w"),
+                                          ("usage", {"claude": ""}, "usage claude"), ("routing", [], "routing"),
+                                          ("routing", {"giant": {}}, "giant"), ("routing", {"light": []}, "light"),
+                                          ("routing", {"light": {"other": {}}}, "other"),
+                                          ("routing", {"deep": {"codex": {"model": 3}}}, "model"),
+                                          ("routing", {"deep": {"claude": {"effort": "ultra"}}}, "effort")):
+            with self.subTest(section=section, invalid=invalid):
+                self.global_config.write_text(json.dumps({**config, section: invalid}))
+                with self.assertRaisesRegex(ValueError, message):
+                    self.engine.quota_report(self.root)
 
     def test_council_rejects_named_or_tampered_jobs_and_retries_after_a_failed_preflight(self):
         location = self.run_dir / "round-1"
@@ -1107,14 +1267,125 @@ print(json.dumps(data))
         plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="claude")])))
         with self.assertRaisesRegex(ValueError, "not available"):  # the Elder is never a lion
             self.engine.voltron(None, "claude", repo, plan_path=plan)
-        # A quota error is marked so the Elder can rerun that part on another model of the same CLI.
-        plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy")])))
-        errors = {"codex": "CLI exited with code 3: Individual quota reached. Resets in 17h", "antigravity": "CLI exited with code 2: bad flag"}
-        with patch.object(self.engine.runner, "execute_jobs", side_effect=lambda jobs, d, cancelled=None: [
-                dict(name=j["name"], agent=j["agent"], status="failed", error=errors[j["name"]]) for j in jobs]):
+        plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy", model="claude-x")])))
+        error = "CLI exited with code 3: Individual quota reached. Resets in 17h"
+        now = 1800000000
+        # now is 2027-01-15 08:00 UTC
+        for text, delay in (("Resets in 2h 30m", 9000), ("try again in 45 minutes", 2700), ("rate limited", 3600),
+                            ("Please retry in 2.517s", 3), ("usage limit reached|%d" % (now + 14400), 14400),
+                            ("resets at 1969-12-31T23:59:59Z", 3600), ("resets at 9999-12-31T23:59:59-05:00", 3600),
+                            ("resets at 2027-01-15T09:00:00.123456789", 3601), ("resets 3pm (UTC)", 7 * 3600),
+                            ("Try again at 7:30 am (UTC)", 23.5 * 3600), ("resets 3pm (Mars/Base)", 3600),
+                            ("Resets at 3:00 p.m. (UTC)", 7 * 3600), ("Resets at 2027-01-15T12:00:00.", 4 * 3600),
+                            ("Resets at 2027-01-15T13:00:00+0300", 2 * 3600), ("Retry-After: 120", 120),
+                            ("retry in a moment; usage limit resets in 2h", 7200)):
+            with self.subTest(text=text):
+                self.assertEqual(self.engine.quota_reset(text, now), now + delay)
+        self.assertLessEqual(self.engine.quota_reset("", self.engine.MAX_RESET - 10), self.engine.MAX_RESET)
+        # Only a stated reset over a minute away, or a quota phrase with none, counts; a short or bare throttle does not.
+        for text, quota in (("429 Too Many Requests. Retry in 59.9s", False), ("Retry in 60s", False),
+                            ("429 retry in 0s", False), ("rate_limit_exceeded: retry in 500ms", False),
+                            ("429 Too Many Requests. Please retry after 30 seconds", False), ("429 Too Many Requests", False),
+                            ("Individual quota reached. Resets in 17h", True), ("RESOURCE_EXHAUSTED", True)):
+            with self.subTest(text=text):
+                self.assertEqual(self.engine.is_quota_failure("CLI exited with code 1: " + text, now), quota)
+        # A clock time with no zone is local, and tomorrow keeps tomorrow's offset across a DST change.
+        import zoneinfo
+        new_york = zoneinfo.ZoneInfo("America/New_York")
+        self.addCleanup(time.tzset)  # runs after the TZ patch below is undone
+        with patch.dict(os.environ, TZ="America/New_York"):
+            time.tzset()
+            evening = datetime.datetime(2026, 10, 31, 22, 0, tzinfo=new_york).timestamp()
+            self.assertEqual(self.engine.quota_reset("Try again at 3:14 PM", evening),
+                             datetime.datetime(2026, 11, 1, 15, 14, tzinfo=new_york).timestamp())
+        for text, quota in (("5-hour limit reached ∙ resets 3pm", True), ("Weekly limit reached", True),
+                            ("You've hit your limit · resets 3pm", True), ("Error: 429 Too Many Requests", True),
+                            ("You exceeded your current quota", True), ("unknown flag --quota-mode", False),
+                            ("Disk quota exceeded", False), ("exceeded the limit on open files", False),
+                            ("Request too large: exceeded the limit of 32MB", False),
+                            ("Payload too large: you have exceeded your limit of 32MB", False),
+                            ("open files: reached your limit of 1024 descriptors", False), ("limit reached|1800014400", True),
+                            ("You've hit your 5-hour limit", True), ("you have exceeded your monthly quota", True)):
+            with self.subTest(text=text):
+                self.assertEqual(bool(self.engine.QUOTA_ERROR.search("CLI exited with code 1: " + text)), quota)
+        with patch.object(self.engine.time, "time", return_value=now), \
+                patch.object(self.engine.runner, "execute_jobs", side_effect=lambda jobs, d, cancelled=None: [
+                    dict(name=j["name"], agent=j["agent"], status="timeout" if j["name"] == "codex" else "failed",
+                         error=error) for j in jobs]):
             summary = self.engine.voltron(None, "claude", repo, plan_path=plan)
-        self.assertEqual({j["name"]: j.get("quota", False) for j in summary["jobs"]}, {"codex": True, "antigravity": False})
+        self.assertEqual({j["name"]: j.get("quota", False) for j in summary["jobs"]}, {"codex": False, "antigravity": True})
+        # Each run logs one line per lion: settings and outcome, never the prompt, answer or error text.
+        run_log = self.global_config.with_name("runs.jsonl")
+        runs = [json.loads(line) for line in run_log.read_text().splitlines()][-2:]  # earlier runs logged too
+        self.assertEqual({(r["lion"], r["status"], r.get("quota", False), r["usage"], r["mode"]) for r in runs},
+                         {("codex", "timeout", False, "unknown", "same"), ("antigravity", "failed", True, "unknown", "same")})
+        self.assertTrue(all(set(r) <= {"time", "mode", "lion", "agent", "model", "effort", "tier", "status",
+                                       "duration_seconds", "usage", "quota"} for r in runs))
+        self.assertNotIn("Individual", run_log.read_text())
+        self.assertEqual(run_log.stat().st_mode & 0o777, 0o600)
+        until = now + 17 * 3600
+        ledger = self.global_config.with_name("quota.json")
+        self.assertEqual(ledger.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(json.loads(ledger.read_text()), dict(schema="cogitor.quota.v1", cooldowns={
+            "antigravity/claude": dict(until=until, reason="quota reached", seen=now)}))  # never the full message
+        with patch.object(self.engine.time, "time", return_value=now), patch.object(self.engine.runner, "preflight") as check:
+            reset = self.engine.quota_time(until)
+            with self.assertRaisesRegex(ValueError, "antigravity/claude.*" + reset):
+                self.engine.voltron(None, "claude", repo, plan_path=plan)
+            with patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--check", "--plan", str(plan),
+                                            "--cwd", str(repo)]), patch("builtins.print") as output:
+                self.assertEqual(self.engine.main(), 2)
+                self.assertIn(reset, output.call_args.args[0])
+            check.assert_not_called()
+            # Without a plan, "every lion" means every lion with room: an exhausted one is skipped and named.
+            planless = dict(mode="same", task="t")
+            self.assertEqual([j["name"] for j in self.engine.plan_jobs(planless, "claude", repo)], ["codex"])
+            self.assertEqual(planless["skipped"], ["antigravity/claude"])
+            states = {e["pool"]: e for e in self.engine.quota_report(repo)["lions"] if e["agent"] == "antigravity"}
+            self.assertEqual(states["claude"]["source"], "cooldown")
+            self.assertEqual(states["gemini"]["state"], "unknown")
+        with patch.object(self.engine.time, "time", return_value=until):
+            self.assertEqual(len(self.engine.plan_jobs(self.engine.load_plan(plan), "claude", repo)), 2)
+            self.assertTrue(all(e["cooldown_until"] is None for e in self.engine.quota_report(repo)["lions"]))
+            self.engine.record_cooldown(dict(name="codex", agent="codex", model="example"), "quota exceeded " + "x" * 200)
+            records = json.loads(ledger.read_text())["cooldowns"]
+            self.assertEqual(records["codex/account"]["until"], until + 3600)
+            self.assertEqual(records["codex/account"]["reason"], "quota exceeded")
+            self.assertNotIn("antigravity/claude", records)  # expired blocks are pruned on write
+            # A shorter block never overwrites a longer one for the same pool.
+            self.engine.record_cooldown(dict(name="codex", agent="codex"), "quota exceeded. Resets in 5m")
+            self.assertEqual(json.loads(ledger.read_text())["cooldowns"]["codex/account"]["until"], until + 3600)
+            # An Antigravity lion without a model may land in any pool, so every pool's block applies.
+            self.engine.record_cooldown(dict(name="antigravity", agent="antigravity", model="gemini-x"), "RESOURCE_EXHAUSTED")
+            unset = dict(mode="same", task="t", lions=[dict(name="agy")])
+            with self.assertRaisesRegex(ValueError, "antigravity/gemini"):
+                self.engine.plan_jobs(unset, "claude", repo)
+            # A failure without a model may have used any pool, so it blocks all three.
+            self.engine.record_cooldown(dict(name="antigravity", agent="antigravity"), "RESOURCE_EXHAUSTED")
+            self.assertTrue({"antigravity/claude", "antigravity/gemini", "antigravity/other"} <=
+                            set(json.loads(ledger.read_text())["cooldowns"]))
+            self.assertEqual(self.global_config.with_name("quota.lock").stat().st_mode & 0o777, 0o600)
         self.engine.voltron_clean(summary["run_dir"])
+        # A throttle that clears within a minute is a plain failure: no reassignment, no cooldown.
+        throttle = "CLI exited with code 1: 429 Too Many Requests. Please retry in 2s"
+        before = ledger.read_text()
+        with patch.object(self.engine.time, "time", return_value=until + 7200), \
+                patch.object(self.engine.runner, "execute_jobs", side_effect=lambda jobs, d, cancelled=None: [
+                    dict(name=j["name"], agent=j["agent"], status="failed", error=throttle) for j in jobs]):
+            throttled = self.engine.voltron(None, "claude", repo, plan_path=plan)
+        self.assertFalse(any(j.get("quota") for j in throttled["jobs"]))
+        self.assertEqual(self.engine.runs_summary()["antigravity/claude-x"],
+                         dict(runs=2, avg_seconds=None, success_rate=0.0, quota_rate=0.5))
+        with patch.object(sys, "argv", ["cogitor.py", "metrics", "--dir", str(self.root / "none")]), \
+                patch("builtins.print") as output:
+            self.assertEqual(self.engine.main(), 0)
+        self.assertIn("antigravity/claude-x", json.loads(output.call_args.args[0])["lions"])
+        # Only numeric top-level counters reach disk; nested text from a provider never does.
+        self.assertEqual(self.engine.usage_counters({"input_tokens": 4, "geo": "global",
+                                                     "diagnostic": {"prompt": "secret"}}), {"input_tokens": 4})
+        self.assertEqual(self.engine.usage_counters(None), "unknown")
+        self.assertEqual(ledger.read_text(), before)
+        self.engine.voltron_clean(throttled["run_dir"])
         # Partial success exits 0; only a run where no lion succeeded is a failure.
         plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy")])))
         for statuses, code in ((("success", "failed"), 0), (("failed", "timeout"), 1)):

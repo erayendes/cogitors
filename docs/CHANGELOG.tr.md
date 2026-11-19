@@ -2,6 +2,25 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
+## Yayınlanmadı
+
+### Eklenenler
+- `cogitors quota`, her aslanın kalan kotasını model çağırmadan, ağa çıkmadan ve token okumadan gösterir. Claude aslanları bir status-line anlık görüntüsünü (`~/.cogitors/config.json` içindeki `usage`), Codex aslanları en yeni oturum dosyalarındaki en son hesap geneli ölçümü okur; Antigravity için yalnızca cooldown vardır.
+- Kota defteri `~/.cogitors/quota.json`, bir aslan kesin bir kota hatası aldığında cooldown kaydeder.
+- Yönlendirme katmanları: plandaki bir aslan `tier` (`light`, `standard`, `deep`) taşıyabilir; plan belirtmedikçe modeli ve effort'u yapılandırmadaki `routing`'den gelir.
+- Elder `/voltron` ve `/lions` önerisini kendiliğinden getirebilir, ama önce sorar.
+- Bir yönlendirme katmanı sıralı bir aslan yedek listesi olabilir; `quota --json` her adımın durumunu `fallbacks` altında gösterir.
+- Her `voltron` çalışması `~/.cogitors/runs.jsonl` dosyasına aslan başına bir satır ekler (istem, yanıt ya da hata metni yok); `cogitors metrics` aslan ve model başına süre, başarı ve kota oranını özetler.
+- `/voltron` ve `/lions` brief'leri teslim sözleşmesi taşır ve neyin bitmiş sayılmadığını yazar; yalnızca kanıtlı bulgu engeller, aynı model ailesinin hemfikir olması doğrulama sayılmaz.
+
+### Değişenler
+- `cogitors voltron`, kotası tükenmiş bir aslanı, aslanı ve sıfırlanma zamanını belirterek, hiçbir model çalışmadan reddeder.
+- Kesin kota hatası alan aslanın parçası artık yalnızca aynı CLI'nin başka bir modeline değil, kotası olan başka bir yetkin aslana (aynı CLI'nin başka bir hesabı dahil) veriliyor.
+- Başarısız bir Codex çalışması artık stderr'deki kapanış satırı yerine Codex'in kendi hata mesajını bildiriyor.
+- Eski biçimli yapılandırma (düz `{agent: options}`), yanına `usage` ya da `routing` eklenince kayıtlı modellerini kaybetmiyor.
+- Antigravity'nin çevrimdışı yedek model listesi artık Argon'u varsayılan yapmıyor; varsayılan `gemini-4-neon-high`.
+- `cogitors` kendisi katı kalır: otomatik yeniden deneme, model ya da hesap değişikliği yok.
+
 ## 0.2.2
 
 ### Değişenler

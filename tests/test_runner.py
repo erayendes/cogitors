@@ -387,6 +387,34 @@ class RunnerCheck(unittest.TestCase):
                 self.assertEqual(res["status"], "failed")
                 self.assertIn("maximum allowed size", res["error"])
 
+    def test_codex_error_event_beats_closing_stderr(self):
+        runner = self.runner()
+        stdout, stderr = self.root / "codex.out", self.root / "codex.err"
+        stdout.write_text("\n".join(json.dumps(e) for e in (
+            {"type": "thread.started", "thread_id": "t"},
+            {"type": "turn.failed", "error": {"message": "Quota exceeded. Resets in 2h"}})) + "\n")
+        stderr.write_text("shutting down\n")
+        self.assertEqual(runner.cli_error(stdout, stderr), "Quota exceeded. Resets in 2h")
+        stdout.write_text(json.dumps({"type": "turn.completed"}) + "\n")
+        self.assertEqual(runner.cli_error(stdout, stderr), "shutting down")
+        # A passing stream error does not fail a turn that completes; the terminal event decides and names the cause.
+        write = lambda *events: stdout.write_text("\n".join(json.dumps(e) for e in events) + "\n")
+        write({"type": "thread.started", "thread_id": "t"}, {"type": "error", "message": "429 Too Many Requests"},
+              {"type": "item.completed", "item": {"type": "agent_message", "text": "ok"}}, {"type": "turn.completed"})
+        self.assertEqual(runner.parse_response("codex", stdout)["response"], "ok")
+        write({"type": "thread.started", "thread_id": "t"}, {"type": "error", "message": "Reconnecting... 1/5"},
+              {"type": "turn.failed", "error": {"message": "Quota exceeded. Resets in 2h"}})
+        with self.assertRaisesRegex(ValueError, "turn.failed: Quota exceeded. Resets in 2h"):
+            runner.parse_response("codex", stdout)
+        # Claude and Antigravity failures carry their own message too, so a quota error can be recognized.
+        for agent, data, message in (
+                ("claude", {"is_error": True, "subtype": "error", "result": "usage limit reached|1800014400",
+                            "session_id": "s"}, "usage limit reached"),
+                ("antigravity", {"status": "ERROR", "error": "Individual quota reached. Resets in 17h"}, "quota reached")):
+            stdout.write_text(json.dumps(data))
+            with self.subTest(agent=agent), self.assertRaisesRegex(ValueError, message):
+                runner.parse_response(agent, stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

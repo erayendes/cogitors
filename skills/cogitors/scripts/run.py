@@ -251,7 +251,7 @@ def command(job):
 def parse_response(agent, path):
     session, response, usage = None, None, None
     if agent == "codex":
-        messages, complete = [], False
+        messages, complete, pending = [], False, None
         with open(path, encoding="utf-8") as source:
             for line in source:
                 line = line.strip()
@@ -264,8 +264,13 @@ def parse_response(agent, path):
                 if not isinstance(event, dict):
                     continue
                 kind = event.get("type")
-                if kind in ("turn.failed", "error"):
-                    raise ValueError("Codex reported " + str(kind))
+                if kind == "error":
+                    # A stream error (a reconnect, a passing 429) fails the run only if no completed turn follows it.
+                    pending = event_message(event) or ""
+                    continue
+                if kind == "turn.failed":
+                    detail = event_message(event) or pending
+                    raise ValueError("Codex reported turn.failed" + (": " + detail if detail else ""))
                 if kind == "thread.started":
                     session = event.get("thread_id")
                 elif kind == "item.completed":
@@ -276,7 +281,9 @@ def parse_response(agent, path):
                             raise ValueError("malformed Codex agent message")
                         messages.append(text)
                 elif kind == "turn.completed":
-                    complete, usage = True, event.get("usage")
+                    complete, usage, pending = True, event.get("usage"), None
+        if pending is not None:
+            raise ValueError("Codex reported error" + (": " + pending if pending else ""))
         if not complete:
             raise ValueError("Codex did not provide a completed turn")
         response = "\n\n".join(messages)
@@ -287,11 +294,13 @@ def parse_response(agent, path):
             raise ValueError("unrecognized response schema")
         if agent == "claude":
             if data.get("is_error") is not False or data.get("subtype") != "success":
-                raise ValueError("Claude did not report a successful result")
+                detail = event_message(dict(message=data.get("result"))) if data.get("is_error") is True else ""
+                raise ValueError("Claude did not report a successful result" + (": " + detail if detail else ""))
             session, response = data.get("session_id"), data.get("result")
         else:
             if data.get("status") != "SUCCESS":
-                raise ValueError("Antigravity did not report SUCCESS")
+                detail = event_message(data)
+                raise ValueError("Antigravity did not report SUCCESS" + (": " + detail if detail else ""))
             session, response = data.get("conversation_id"), data.get("response")
         usage = data.get("usage")
     if usage is not None and not isinstance(usage, dict):
@@ -299,6 +308,15 @@ def parse_response(agent, path):
     if not isinstance(session, str) or not session.strip() or not isinstance(response, str) or not response.strip():
         raise ValueError("response is missing text or a session ID")
     return dict(session_id=session, response=response, usage=usage)
+
+
+def event_message(event):
+    """The message of a Codex error event: {"message": ...} or {"error": {"message": ...}}."""
+    error = event.get("error")
+    for value in (event.get("message"), error, error.get("message") if isinstance(error, dict) else None):
+        if isinstance(value, str) and value.strip():
+            return " ".join(value.split())[:300]
+    return ""
 
 
 def cli_error(stdout_path, stderr_path):
@@ -313,6 +331,19 @@ def cli_error(stdout_path, stderr_path):
                 if isinstance(data.get(key), str) and data[key].strip():
                     return " ".join(data[key].split())[:300]
     except (OSError, ValueError):
+        pass
+    try:  # Codex writes JSON lines; its own error event says more than a closing stderr line.
+        with open(stdout_path, "rb") as source:
+            source.seek(max(0, os.path.getsize(stdout_path) - 65536))
+            lines = source.read().decode("utf-8", "replace").splitlines()
+        for line in reversed(lines):
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(event, dict) and event.get("type") in ("turn.failed", "error") and event_message(event):
+                return event_message(event)
+    except OSError:
         pass
     for path in (stderr_path, stdout_path):
         try:
