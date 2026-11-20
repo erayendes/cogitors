@@ -2,7 +2,7 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
-## Yayınlanmadı
+## 0.3.2
 
 ### Değişenler
 - `/voltron` ve `/lions`'ta ana model artık Elder değil Siyah Aslan (Elder `/cogitors`'ta kalır). `cogitor.py voltron --elder` artık `--black-lion`; sonuçtaki `elder` alanı `black_lion` oldu.

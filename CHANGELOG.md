@@ -2,7 +2,7 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
-## Unreleased
+## 0.3.2
 
 ### Changed
 - In `/voltron` and `/lions` the host is now the Black Lion, not the Elder (the Elder stays in `/cogitors`). `cogitor.py voltron --elder` is now `--black-lion`, and the result field `elder` is `black_lion`.
