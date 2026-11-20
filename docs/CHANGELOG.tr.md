@@ -2,7 +2,7 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
-## Yayınlanmadı
+## 0.3.1
 
 ### Eklenenler
 - Antigravity kotası: `"usage": {"antigravity": "acp"}` ile `cogitors quota`, agy'nin 5 saatlik ve haftalık pencerelerini kısa bir yerel `agy acp` oturumundan okur (model çağrısı yok, token okunmaz, geride konuşma kalmaz); sonuç beş dakika önbellekte tutulur.

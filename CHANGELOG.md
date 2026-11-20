@@ -2,7 +2,7 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
-## Unreleased
+## 0.3.1
 
 ### Added
 - Antigravity quota: with `"usage": {"antigravity": "acp"}`, `cogitors quota` reads agy's 5-hour and weekly windows from a short local `agy acp` session (no model call, no token read, no leftover conversation), cached for five minutes.
