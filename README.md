@@ -37,78 +37,66 @@ Every model receives the whole task. Over four rounds they analyze independently
 
 ## Six Skills
 
-`/<model> <task>` calls Codex, Antigravity or Claude onto a task, and it gets the job done in the background.
+### `/cogitors`
 
-`/cogitors <task>` is different: it starts the five-round deliberation protocol with all three agents.
-
-`/voltron <task>` forms Voltron: the Elder splits the job into parts, every other model and account builds one part as a lion at the same time, and the Elder joins them and runs the checks. `/lions <task>` sends every lion to the same task instead, each from its own view, and the Elder merges what they find; it suits a code review or a second opinion. The Elder picks a model for each lion and starts at once; their output is for the Elder, which gives you one summary. The Elder reads each lion's quota with `cogitors quota` and picks quota first: it skips exhausted lions, prefers the one with room whose window resets soonest (weekly windows ahead of 5-hour ones), and chooses the model and effort from the live `cogitors models` list by the work's size and risk, unless `routing` sets an ordered fallback list. It also reserves a management share of its own quota sized to the job, handing joining and verification to a lion when its own quota is below that share or unknown. The Elder weighs `/voltron` and `/lions` on every task, proposes them with a reason and a lion plan (asking first), and logs each proposal and answer. When a lion or a `/codex`, `/claude` or `/antigravity` call hits a definite quota error, the work moves on its own to another capable model or account with room, and the status line says so. `cogitors` itself never switches models. Which CLIs and accounts you use, and their default models, live only in your own `~/.cogitors/config.json`. Work that changes files runs in a separate git worktree per lion. Extra accounts (for example a second Claude or Codex login) are listed under `accounts` in `~/.cogitors/config.json`; see [installation](docs/installation.md).
+The skill that gives the project its name starts a five-round deliberation protocol with three agents.
 
 ```text
-- /antigravity Find the contradicting clauses in this technical spec.
-- /claude Analyze the performance bottlenecks in this PR diff.
-- /codex List the weaknesses in the authentication flow without changing code.
-
 - /cogitors Review this architecture proposal together. Do not change any code, and state unresolved objections explicitly.
 - /cogitors --git-diff HEAD~1 Deliberate on this PR's changes for security and performance.
-
-- /voltron Build the checkout flow: API, UI and tests.
-- /lions Review this repository for bugs.
 ```
 
-> [!NOTE]
-> These are not new terminal commands but standard **Agent Skills** invocations. The agent that starts the session becomes the **Elder**, runs it **and takes part in the deliberation itself**; no extra fourth model is launched.
-
----
-
-## Five Rounds
+#### Five Rounds
 
 ```text
-               ┌───────────────────────┐
-               │   /cogitors <task>    │
-               └───────────┬───────────┘
-Round 1: Initial Analysis  ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-                           ▼
-               ┌───────────────────────┐
-               │    Drafts Unsealed    │
-               └───────────┬───────────┘
-Round 2: Reconsideration   ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-Round 3: Debate            ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │─x─│ Antigravity │─x─│   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┬────────────────────────────
-Round 4: Final Position    ▼
-────────────────────────────────────────────────────────
-  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-  │    Codex    │   │ Antigravity │   │   Claude    │
-  └─────────────┘   └─────────────┘   └─────────────┘
-───────────────────────────┐
-Round 5: Synthesis         ▼
-────────────────────┬──────────────┐
-                    │    Elder     │
-                    └──────────────┘
+                 ┌───────────────────────┐
+                 │    /cogitors <task>   │
+                 └───────────┬───────────┘
+Round 1: Initial Analysis    │
+Each agent examines the task alone, without seeing the others.
+                             ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+                             ▼
+                 ┌───────────────────────┐
+                 │    Drafts Unsealed    │
+                 └───────────┬───────────┘
+Round 2: Reconsideration     │
+Agents read each other's drafts and may update their views.
+                             ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+Round 3: Debate              │
+Each agent defends its view with evidence and objects where it disagrees.
+                             ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │─x─│ Antigravity │─x─│   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+Round 4: Final Position      │
+Objections are answered and each agent sets its final stance.
+                             ▼
+──────────────────────────────────────────────────────────
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │    Codex    │   │ Antigravity │   │   Claude    │
+   └─────────────┘   └─────────────┘   └─────────────┘
+─────────────────────────────┬────────────────────────────
+Round 5: Synthesis           │
+The Elder gathers agreements, minority views and uncertainties into one decision.
+                             ▼
+                      ┌──────────────┐
+                      │    Elder     │
+                      └──────────────┘
 ```
 
-1. **Initial Analysis:** Each agent examines the task alone, without seeing the others.
-2. **Reconsideration:** Agents read each other's drafts and may update their views.
-3. **Debate:** Each agent defends its view with evidence and objects where it disagrees.
-4. **Final Position:** Objections are answered and each agent sets its final stance.
-5. **Synthesis:** The Elder gathers agreements, minority views and uncertainties into one decision.
-
----
-
-## Decision Outputs and Directory Layout
+#### Decision Outputs and Directory Layout
 
 Every session is saved in the task's language under your project's `docs/cogitors/` directory. Working files go to the session's `temp/` folder, which git ignores and which is deleted once the report is finished:
 
@@ -132,26 +120,74 @@ Every session is saved in the task's language under your project's `docs/cogitor
 - **Follow-up questions:** Every part of the HTML report has an **Ask** button. Ask one question or collect several, paste them into the chat, and the Elder answers from the session record without new model calls. Answers appear under the part you asked about; the decision itself never changes.
 - **Revisit:** The Elder can set a revisit date and what would show the decision was right; `npx cogitors revisit` lists the sessions whose date has come. Each reasoned dissent can also name the evidence that would settle it.
 
----
+`cogitors` itself never switches models.
 
-## Quick Install
-
-Run `npx skills add erayendes/cogitors` and install all six skills. Details [here](docs/installation.md).
-
----
-
-## Limits, Cost and Safety
+#### Limits, Cost and Safety
 
 - **Cost:** A session makes 8 external model calls (plus any timeout retries you approve), and you approve the scope, including every shared file's path, size and hash, before any call starts. `--max-calls N` sets a hard ceiling, retries included.
 - **Source code:** Deliberation never edits code; if a source file changes, the session stops.
 - **Participation:** If an agent fails, you are asked; a session never continues with fewer than 2 participants.
 - **Time:** 180 seconds per call and 1800 seconds per session (`--timeout`, `--total-timeout`).
 
+### `/<model> <task>`
+
+Codex, Antigravity or Claude is called onto a task and gets it done in the background.
+
+```text
+- /antigravity Find the contradicting clauses in this technical spec.
+- /claude Analyze the performance bottlenecks in this PR diff.
+- /codex List the weaknesses in the authentication flow without changing code.
+```
+
+### `/voltron <task>`
+
+This skill forms Voltron: the agent you talk to is the Black Lion.
+
+It splits the job into parts; up to four other models and accounts build one part each at the same time as the Red, Yellow, Green and Blue Lions.
+
+The Black Lion joins the parts and runs the checks.
+
+```text
+- /voltron Build the checkout flow: API, UI and tests.
+```
+
+### `/lions <task>`
+
+This skill sends the lions to the same task instead. Each looks at the work from its own view, and in the end the Black Lion merges what they find. It suits a code review or a second opinion.
+
+```text
+- /lions Review this repository for bugs.
+```
+
+The Black Lion picks a model for each lion and starts at once; their output is for the Black Lion, which gives you one summary.
+
+It reads each lion's quota with `cogitors quota`. It assigns the lions' work by quota first, then by effort, the work's size and its risk.
+
+It also reserves a management share of its own quota sized to the job. When its remaining quota is below that share or unknown, it hands joining and verification to another lion as well.
+
+The Black Lion weighs `/voltron` and `/lions` on every task and, when they fit, proposes them with a reason and the lion's share.
+
+When a lion or a `/codex`, `/claude` or `/antigravity` call hits a definite quota error, the work moves on its own to another capable model or account with room, and the status line says so.
+
+Work that changes files runs in a separate git worktree per lion.
+
+---
+
+## Quick Install
+
+Run `npx skills add erayendes/cogitors` and install all six skills. Details [here](docs/installation.md).
+
+Which CLIs and accounts you use, and their default models, live only in your own `~/.cogitors/config.json`.
+
+---
+
 ## The Story Behind the Name
 
 **Cogitors** are ancient minds in the Dune universe that left their bodies behind and, preserved in a protective fluid, **devote thousands of years to thought**.
 They reach a conclusion only after thinking and debating at length, never in haste.
 This project takes its name from them: several models think through the same question without haste, questioning themselves and each other.
+
+**Voltron** is simply **Voltron**.
 
 ---
 

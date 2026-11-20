@@ -9,6 +9,7 @@ import html
 import json
 import math
 import os
+import random
 from pathlib import Path
 import re
 import select
@@ -2624,7 +2625,9 @@ def revisit_due(decisions_dir, today=None):
     return dict(today=today, due=sorted(due, key=lambda d: d["revisit_date"]), skipped=skipped)
 
 
-ELDER_ALIASES = {"agy": "antigravity"}
+LION_ALIASES = {"agy": "antigravity"}
+# Voltron is five lions: the host is the Black Lion, the others take these colours.
+LION_COLORS = ("red", "yellow", "green", "blue")
 
 
 DEFAULT_ACCOUNT_DIRS = {"codex": Path.home() / ".codex", "claude": Path.home() / ".claude"}
@@ -2644,7 +2647,7 @@ def lion_config(cwd):
     lions = [dict(name=agent, agent=agent, **({"config_dir": None} if agent in runner.CONFIG_ENV else {}))
                for agent in AGENTS]
     for name, account in accounts.items():
-        if name in AGENTS or name in ELDER_ALIASES or not runner.JOB_NAME.match(name) \
+        if name in AGENTS or name in LION_ALIASES or not runner.JOB_NAME.match(name) \
                 or not isinstance(account, dict) or account.get("agent") not in runner.CONFIG_ENV \
                 or not isinstance(account.get("config_dir"), str):
             raise ValueError("account %s needs a new lowercase name, agent codex or claude, and config_dir" % name)
@@ -2691,7 +2694,7 @@ def lion_config(cwd):
             seen = set()
             for item in agents:
                 name = item.get("lion") if isinstance(item, dict) and isinstance(item.get("lion"), str) else None
-                name = ELDER_ALIASES.get(name, name)
+                name = LION_ALIASES.get(name, name)
                 if name not in by_name or name in seen or set(item) - {"lion", "model", "effort"}:
                     raise ValueError("routing %s list items need a distinct known lion and optional model and effort"
                                      % tier)
@@ -2707,23 +2710,23 @@ def lion_config(cwd):
     return lions, usage, routing
 
 
-def select_lions(lions, elder, exclude, limit=True):
+def select_lions(lions, black_lion, exclude, limit=True):
     names = [w["name"] for w in lions]
-    elder = ELDER_ALIASES.get(elder, elder)
-    exclude = {ELDER_ALIASES.get(n, n) for n in exclude}
-    unknown = ({elder} | exclude) - set(names)
+    black_lion = LION_ALIASES.get(black_lion, black_lion)
+    exclude = {LION_ALIASES.get(n, n) for n in exclude}
+    unknown = ({black_lion} | exclude) - set(names)
     if unknown:
         raise ValueError("unknown lion %s; lions are %s" % (", ".join(sorted(unknown)), ", ".join(names)))
-    chosen = [w for w in lions if w["name"] != elder and w["name"] not in exclude]
+    chosen = [w for w in lions if w["name"] != black_lion and w["name"] not in exclude]
     if not chosen:
-        raise ValueError("no lions left after the Elder and exclusions")
-    if limit and len(chosen) > runner.MAX_JOBS:
-        raise ValueError("at most %s lions run at once; exclude some with --exclude" % runner.MAX_JOBS)
+        raise ValueError("no lions left after the Black Lion and exclusions")
+    if limit and len(chosen) > len(LION_COLORS):
+        raise ValueError("at most %s lions run at once; exclude some with --exclude" % len(LION_COLORS))
     return chosen
 
 
-def voltron_lions(elder, cwd=None, exclude=()):
-    return select_lions(lion_config(cwd)[0], elder, exclude)
+def voltron_lions(black_lion, cwd=None, exclude=()):
+    return select_lions(lion_config(cwd)[0], black_lion, exclude)
 
 
 # Antigravity's own quota groups: Gemini, Argon on its own, and Claude together with GPT-OSS.
@@ -3175,14 +3178,14 @@ def quota_report(cwd):
         snapshot = snapshots[lion["name"]]
         pools = AGY_POOLS if lion["agent"] == "antigravity" else ("account",)
         entries.extend(quota_entry(lion, pool, snapshot, cooldowns, now) for pool in pools)
-    # Each ordered fallback list with every step's state, so the Elder takes the first one not exhausted.
+    # Each ordered fallback list with every step's state, so the Black Lion takes the first one not exhausted.
     by_name = {lion["name"]: lion for lion in lions}
     fallbacks = {}
     for tier, items in routing.items():
         if isinstance(items, list):
             fallbacks[tier] = []
             for item in items:
-                job = dict(by_name[ELDER_ALIASES.get(item["lion"], item["lion"])],
+                job = dict(by_name[LION_ALIASES.get(item["lion"], item["lion"])],
                            **{k: item[k] for k in ("model", "effort") if k in item})
                 states = [quota_entry(job, pool, snapshots[job["name"]], cooldowns, now)["state"]
                           for pool in lion_pools(job)]
@@ -3234,7 +3237,7 @@ def git(cwd, *args, raw=False, index=None, config=()):
 
 def snapshot_commit(top, scratch):
     """A commit of the working tree as it is now, untracked files included, on no branch.
-    The user's branch, index and files stay untouched; lions start from what the Elder sees."""
+    The user's branch, index and files stay untouched; lions start from what the Black Lion sees."""
     index = Path(scratch) / "snapshot.index"
     try:
         head = git(top, "rev-parse", "--verify", "HEAD").strip()
@@ -3300,19 +3303,21 @@ QUOTA_ERROR = re.compile(
     % dict(w=r"account|usage|rate|current|weekly|daily|monthly|session|\d+-hour"), re.I)
 
 
-def plan_jobs(plan, elder, cwd, exclude=()):
+def plan_jobs(plan, black_lion, cwd, exclude=()):
     """Jobs for the plan's lions, each with its own prompt, model and effort."""
     lions, usage, routing = lion_config(cwd)
-    available = {lion["name"]: lion for lion in select_lions(lions, elder, exclude, limit=False)}
+    available = {lion["name"]: lion for lion in select_lions(lions, black_lion, exclude, limit=False)}
     cooldowns = quota_cooldowns()
     now = time.time()
     jobs = []
     planless = "lions" not in plan
     entries = [dict(name=name) for name in available] if planless else plan["lions"]
-    if len(entries) > runner.MAX_JOBS:  # the cap counts lions that run, not every configured account
-        raise ValueError("at most %s lions run at once; exclude some with --exclude" % runner.MAX_JOBS)
-    for entry in entries:
-        name = ELDER_ALIASES.get(entry["name"], entry["name"])
+    if len(entries) > len(LION_COLORS):  # the cap counts lions that run, not every configured account
+        raise ValueError("at most %s lions run at once; exclude some with --exclude" % len(LION_COLORS))
+    # A colour per lion, shuffled by the plan itself so --check and the run agree.
+    colors = random.Random(json.dumps(entries, sort_keys=True)).sample(LION_COLORS, len(entries))
+    for entry, color in zip(entries, colors):
+        name = LION_ALIASES.get(entry["name"], entry["name"])
         if name not in available:
             raise ValueError("plan lion %s is not available; lions are %s" % (name, ", ".join(available)))
         job = dict(available[name])
@@ -3321,7 +3326,7 @@ def plan_jobs(plan, elder, cwd, exclude=()):
             if tier not in TIERS or tier not in routing:
                 raise ValueError("plan tier %s for %s is missing from routing" % (tier, name))
             if isinstance(routing[tier], list):
-                step = [s for s in routing[tier] if ELDER_ALIASES.get(s["lion"], s["lion"]) == name]
+                step = [s for s in routing[tier] if LION_ALIASES.get(s["lion"], s["lion"]) == name]
                 if not step:
                     raise ValueError("plan tier %s has no entry for lion %s in routing" % (tier, name))
                 job.update({k: step[0][k] for k in ("model", "effort") if k in step[0]})
@@ -3358,13 +3363,13 @@ def plan_jobs(plan, elder, cwd, exclude=()):
                       "Your part:\n" + entry["task"].strip())
         else:
             prompt = plan["task"].strip()
-        jobs.append(dict(job, prompt=prompt, owns=entry.get("owns") or [], tier=entry.get("tier")))
+        jobs.append(dict(job, prompt=prompt, owns=entry.get("owns") or [], tier=entry.get("tier"), color=color))
     if not jobs:
         raise ValueError("every lion is out of quota: %s" % ", ".join(plan.get("skipped", [])))
     return jobs
 
 
-def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), plan_path=None):
+def voltron(task_path, black_lion, cwd, access="review", timeout=900, exclude=(), plan_path=None):
     """Run lions on one task (same) or on the parts of one job (parts); edits use one worktree each."""
     cwd = Path(cwd).resolve()
     if access not in ("review", "edit"):
@@ -3376,7 +3381,7 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
         if not task:
             raise ValueError("task file is empty")
         plan = dict(mode="same", task=task)
-    jobs = plan_jobs(plan, elder, cwd, exclude)
+    jobs = plan_jobs(plan, black_lion, cwd, exclude)
     if access == "edit":
         try:
             top = Path(git(cwd, "rev-parse", "--show-toplevel").strip()).resolve()
@@ -3387,10 +3392,11 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
                              "leave your changes uncommitted.\n\n" + job["prompt"])
     owns = {job["name"]: job.pop("owns") for job in jobs}
     tiers = {job["name"]: job.pop("tier") for job in jobs}
+    colors = {job["name"]: job.pop("color") for job in jobs}
     jobs = [dict(job, cwd=str(cwd), access=access, timeout_seconds=timeout) for job in jobs]
     runner.preflight(jobs)
     directory = Path(tempfile.mkdtemp(prefix="voltron-")).resolve()
-    summary = dict(run_dir=str(directory), cwd=str(cwd), elder=ELDER_ALIASES.get(elder, elder),
+    summary = dict(run_dir=str(directory), cwd=str(cwd), black_lion=LION_ALIASES.get(black_lion, black_lion),
                    mode=plan["mode"], access=access, worktrees=[],
                    **({"skipped": plan["skipped"]} if plan.get("skipped") else {}))
     write_json(directory / "voltron.json", summary)
@@ -3416,6 +3422,7 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
     for job, result in zip(jobs, results):
         entry = {k: result.get(k) for k in ("name", "agent", "model", "effort", "status", "error",
                                             "result_path", "duration_seconds")}
+        entry["color"] = colors[job["name"]]
         failed_at = started + (result.get("duration_seconds") or 0)
         # A throttle that clears within a minute is a plain failure, not an empty quota.
         if result.get("status") == "failed" and is_quota_failure(result.get("error"), failed_at):
@@ -3846,8 +3853,8 @@ def main():
     prop_cmd = sub.add_parser("proposal", help="log a /voltron or /lions proposal and the user's answer")
     prop_cmd.add_argument("--kind", choices=PROPOSAL_KINDS, required=True)
     prop_cmd.add_argument("--answer", choices=PROPOSAL_ANSWERS, required=True)
-    vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Elder")
-    vol_cmd.add_argument("--elder", required=True, help="the host's own lion name (codex, claude, agy or an account)")
+    vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Black Lion")
+    vol_cmd.add_argument("--black-lion", required=True, help="the host's own lion name (codex, claude, agy or an account)")
     vol_cmd.add_argument("--file", type=Path, help="one task every lion does (or use --plan)")
     vol_cmd.add_argument("--plan", type=Path, help="JSON plan: mode parts|same, task, lions [{name, task, tier, model, effort, owns}]")
     vol_cmd.add_argument("--cwd", type=Path, default=Path.cwd())
@@ -3910,15 +3917,16 @@ def main():
         elif args.command == "voltron":
             if args.check:
                 plan = load_plan(args.plan) if args.plan else dict(mode="same", task="check")
-                lions = plan_jobs(plan, args.elder, args.cwd, args.exclude)
+                lions = plan_jobs(plan, args.black_lion, args.cwd, args.exclude)
                 lions = [{k: v for k, v in w.items() if k not in ("prompt", "owns", "tier")} for w in lions]
-                result = dict(runner.preflight([dict(w, cwd=str(args.cwd.resolve()), prompt="check")
+                result = dict(runner.preflight([dict({k: v for k, v in w.items() if k != "color"},
+                                                     cwd=str(args.cwd.resolve()), prompt="check")
                                                 for w in lions]), lions=lions,
                               **({"skipped": plan["skipped"]} if plan.get("skipped") else {}))
             elif bool(args.file) == bool(args.plan):
                 raise ValueError("voltron needs exactly one of --file (one task) or --plan")
             else:
-                result = voltron(args.file, args.elder, args.cwd, args.access, args.timeout, args.exclude,
+                result = voltron(args.file, args.black_lion, args.cwd, args.access, args.timeout, args.exclude,
                                  plan_path=args.plan)
         elif args.command == "voltron-clean":
             result = voltron_clean(args.run_dir)

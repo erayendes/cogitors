@@ -2,6 +2,13 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
+## Unreleased
+
+### Changed
+- In `/voltron` and `/lions` the host is now the Black Lion, not the Elder (the Elder stays in `/cogitors`). `cogitor.py voltron --elder` is now `--black-lion`, and the result field `elder` is `black_lion`.
+- Each lion of a run takes one of Voltron's colours (red, yellow, green, blue), shuffled per plan and shown as `color` in `--check` and the results; dispatch lines start with the colour.
+- At most four lions run at once: with the Black Lion they are the five that form Voltron.
+
 ## 0.3.1
 
 ### Added

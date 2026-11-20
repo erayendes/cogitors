@@ -37,36 +37,24 @@ Kritik bir mimari tercih, güvenlik denetimi veya ürün kararı gerektiğinde t
 
 ## Altı Skill
 
-`/<model> <görev>` Codex, Antgravity ya da Claude göreve çağırılır ve arka planda işini halleder.
+### `/cogitors`
 
-Ama `/cogitors <görev>` başka. Bu üç ajan birlikte 5 turlu müzakere protokolünü başlatır.
-
-`/voltron <görev>` Voltron'u oluşturur: Elder işi parçalara böler, Elder dışındaki her model ve hesap bir aslan olarak bir parçayı aynı anda yapar, Elder parçaları birleştirip testleri çalıştırır. `/lions <görev>` ise her aslanı aynı göreve gönderir; her biri işe kendi bakış açısından bakar, Elder bulguları birleştirir. Code review ya da ikinci görüş için uygundur. Elder her aslana bir model seçer ve hemen başlar; çıktılar Elder içindir, size tek bir özet gelir. Elder her aslanın kotasını `cogitors quota` ile okur ve önce kotaya göre seçer: kotası tükenen aslanları atlar, penceresi en erken yenilenen kotası müsait aslanı tercih eder (haftalık pencereler 5 saatliklerden önce gelir) ve `routing`'de sıralı bir yedek listesi yoksa model ile effort'u işin boyutuna ve riskine göre canlı `cogitors models` listesinden seçer. Ayrıca kendi kotasından işin boyutuna göre bir yönetim payı ayırır; kalan kotası bu payın altındaysa ya da bilinmiyorsa birleştirme ve doğrulamayı da bir aslana devreder. Elder her işte `/voltron` ve `/lions`'ı tartar, uygunsa gerekçe ve aslan planıyla önerir (önce sorar) ve her öneriyi ve yanıtı kaydeder. Bir aslan ya da `/codex`, `/claude`, `/antigravity` çağrısı kesin bir kota hatası alırsa iş kendiliğinden kotası olan başka bir yetkin modele ya da hesaba geçer ve durum satırında söylenir. `cogitors` kendisi hiçbir zaman model değiştirmez. Hangi CLI ve hesapları kullandığınız ve varsayılan modelleriniz yalnızca kendi `~/.cogitors/config.json`'ınızda durur. Dosya değiştiren işlerde her aslan ayrı bir git worktree'sinde çalışır. Ek hesaplar (örneğin ikinci bir Claude ya da Codex girişi) `~/.cogitors/config.json` içindeki `accounts` altında tanımlanır; ayrıntılar [kurulumda](installation.tr.md).
+Projeye ismini veren bu skill, üç ajanlı 5 turlu bir müzakere protokolünü başlatır.
 
 ```text
-- /antigravity Bu teknik şartnamede çelişen maddeleri bul.
-- /claude Bu PR diff'indeki performans darboğazlarını analiz et.
-- /codex Kimlik doğrulama akışındaki açıkları kod değiştirmeden listele.
-
 - /cogitors Bu mimari öneriyi birlikte inceleyin. Kodları değiştirmeyin ve çözülemeyen itirazları açıkça belirtin.
 - /cogitors --git-diff HEAD~1 Bu PR'daki değişiklikleri güvenlik ve performans açısından müzakere edin.
-
-- /voltron Ödeme akışını yap: API, arayüz ve testler.
-- /lions Bu repodaki hataları incele.
 ```
 
-> [!NOTE]
-> Bunlar yeni terminal komutları değil, standart **Agent Skills** çağrılarıdır. Oturumu başlatan ajan **Elder** olur, oturumu yönetir **ve müzakereye bizzat katılır**; fazladan dördüncü bir kopya model çalıştırılmaz.
-
----
-
-## Beş Tur
+#### Beş Tur
 
 ```text
                  ┌───────────────────────┐
                  │    /cogitors <task>   │
                  └───────────┬───────────┘
-Tur 1: Bağımsız Analiz       ▼
+Tur 1: Bağımsız Analiz       │
+Her ajan görevi tek başına, diğerlerini görmeden inceler.
+                             ▼
 ──────────────────────────────────────────────────────────
    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
    │    Codex    │   │ Antigravity │   │   Claude    │
@@ -76,39 +64,39 @@ Tur 1: Bağımsız Analiz       ▼
                  ┌───────────────────────┐
                  │  Taslakların Açılması │
                  └───────────┬───────────┘
-Tur 2: Yeniden Değerlendirme ▼
+Tur 2: Yeniden Değerlendirme │
+Ajanlar birbirinin taslağını okur, isterse görüşünü günceller.
+                             ▼
 ──────────────────────────────────────────────────────────
    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
    │    Codex    │   │ Antigravity │   │   Claude    │
    └─────────────┘   └─────────────┘   └─────────────┘
 ─────────────────────────────┬────────────────────────────
-Tur 3: Münazara              ▼
+Tur 3: Münazara              │
+Her ajan görüşünü kanıtla savunur ve katılmadığı görüşlere itiraz eder.
+                             ▼
 ──────────────────────────────────────────────────────────
    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
    │    Codex    │─x─│ Antigravity │─x─│   Claude    │
    └─────────────┘   └─────────────┘   └─────────────┘
 ─────────────────────────────┬────────────────────────────
-Tur 4: Nihai Pozisyon        ▼
+Tur 4: Nihai Pozisyon        │
+İtirazlar yanıtlanır, her ajan son duruşunu belirler.
+                             ▼
 ──────────────────────────────────────────────────────────
    ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
    │    Codex    │   │ Antigravity │   │   Claude    │
    └─────────────┘   └─────────────┘   └─────────────┘
-─────────────────────────────┐
-Tur 5: Sentez                ▼
-──────────────────────┬──────────────┐
+─────────────────────────────┬────────────────────────────
+Tur 5: Sentez                │
+Elder, uzlaşmaları, azınlık görüşlerini ve belirsizlikleri tek kararda toplar.
+                             ▼
+                      ┌──────────────┐
                       │    Elder     │
                       └──────────────┘
 ```
 
-1. **Bağımsız Analiz:** Her ajan görevi tek başına, diğerlerini görmeden inceler.
-2. **Yeniden Değerlendirme:** Ajanlar birbirinin taslağını okur, isterse görüşünü günceller.
-3. **Münazara:** Her ajan görüşünü kanıtla savunur ve katılmadığı görüşlere itiraz eder.
-4. **Nihai Pozisyon:** İtirazlar yanıtlanır, her ajan son duruşunu belirler.
-5. **Sentez:** Elder, uzlaşmaları, azınlık görüşlerini ve belirsizlikleri tek kararda toplar.
-
----
-
-## Karar Çıktıları ve Dizin Yapısı
+#### Karar Çıktıları ve Dizin Yapısı
 
 Her oturum, görevin dilinde, projenizin `docs/cogitors/` dizinine kaydedilir. Çalışma dosyaları oturumun `temp/` klasörüne yazılır; git bu klasörü görmez ve rapor tamamlanınca klasör silinir:
 
@@ -132,26 +120,74 @@ Her oturum, görevin dilinde, projenizin `docs/cogitors/` dizinine kaydedilir. �
 - **Takip soruları:** HTML raporun her bölümünde bir **Sor** düğmesi var. Tek bir soru sorun ya da birkaçını biriktirin, sohbete yapıştırın; Elder yeni model çağrısı yapmadan oturum kaydından cevaplar. Cevaplar sorduğunuz bölümün altında görünür; kararın kendisi hiç değişmez.
 - **Yeniden bakış:** Elder, karara yeniden bakılacak bir tarih ve kararın doğru çıkıp çıkmadığını neyin göstereceğini yazabilir; `npx cogitors revisit` tarihi gelen oturumları listeler. Her gerekçeli ayrışma, onu neyin netleştireceğini de belirtebilir.
 
----
+`cogitors` kendisi hiçbir zaman model değiştirmez.
 
-## Hızlı Kurulum
-
-`npx skills add erayendes/cogitors` komutunu kullanın ve altı skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
-
----
-
-## Sınırlar, Maliyet ve Güvenlik
+#### Sınırlar, Maliyet ve Güvenlik
 
 - **Maliyet:** Bir oturum 8 harici model çağrısı yapar (onayladığınız zaman aşımı tekrarları hariç); çağrılar başlamadan önce, paylaşılan her dosyanın yolu, boyutu ve hash'i dahil kapsamı siz onaylarsınız. `--max-calls N` tekrarlar dahil kesin bir üst sınır koyar.
 - **Kaynak kod:** Müzakere kodu değiştirmez; bir kaynak dosya değişirse oturum durur.
 - **Katılım:** Bir ajan başarısız olursa size sorulur; 2 katılımcının altında oturum sürmez.
 - **Süre:** Çağrı başına 180 saniye, oturum başına 1800 saniye (`--timeout`, `--total-timeout`).
 
+### `/<model> <görev>`
+
+Codex, Antigravity ya da Claude göreve çağrılır ve işini arka planda halleder.
+
+```text
+- /antigravity Bu teknik şartnamede çelişen maddeleri bul.
+- /claude Bu PR diff'indeki performans darboğazlarını analiz et.
+- /codex Kimlik doğrulama akışındaki açıkları kod değiştirmeden listele.
+```
+
+### `/voltron <görev>`
+
+Bu skill Voltron'u oluşturur: konuştuğunuz ajan Siyah Aslan'dır. 
+
+İşi parçalara böler; en fazla dört başka model ve hesap Kırmızı, Sarı, Yeşil ve Mavi Aslan olarak birer parçayı aynı anda yapar.
+
+Siyah Aslan parçaları birleştirip testleri çalıştırır.
+
+```text
+- /voltron Ödeme akışını yap: API, arayüz ve testler.
+```
+
+### `/lions <görev>` 
+
+Bu skill ise aslanları aynı göreve gönderir. Her biri işe kendi bakış açısından bakar. Siyah Aslan en sonunda bulguları birleştirir. Code review ya da ikinci görüş için uygundur.
+
+```text
+- /lions Bu repodaki hataları incele.
+```
+
+Siyah Aslan her aslana bir model seçer ve hemen başlar; çıktılar Siyah Aslan içindir, size tek bir özet gelir. 
+
+Her aslanın kotasını `cogitors quota` ile okur. Aslanların görevlerini önce kotaya, sonra efforuna, işin boyutuna ve riskine göre seçer.  
+
+Ayrıca kendi kotasından işin boyutuna göre bir yönetim payı ayırır. Kalan kotası bu payın altındaysa ya da bilinmiyorsa birleştirme ve doğrulamayı da başka bir aslana devreder. 
+
+Siyah Aslan her işte `/voltron` ve `/lions`'ı tartar, uygunsa gerekçe ve aslan payıyla önerir.
+
+Bir aslan ya da `/codex`, `/claude`, `/antigravity` çağrısı kesin bir kota hatası alırsa iş kendiliğinden kotası olan başka bir yetkin modele ya da hesaba geçer ve durum satırında söylenir. 
+
+Dosya değiştiren işlerde her aslan ayrı bir git worktree'sinde çalışır. 
+
+---
+
+## Hızlı Kurulum
+
+`npx skills add erayendes/cogitors` komutunu kullanın ve altı skill'in hepsini kurun. Detaylar [burada](installation.tr.md).
+
+Hangi CLI ve hesapları kullandığınız ve varsayılan modelleriniz yalnızca kendi `~/.cogitors/config.json`'ınızda durur.
+
+---
+
 ## Meraklısına İsmin Hikayesi
 
 **Cogitor**'lar, Dune evreninde bedenlerinden ayrılıp koruyucu bir sıvı içinde **binlerce yılı düşünmeye adayan** kadim zihinlerdir. 
 Bir sonuca acele etmeden, uzun uzun düşünüp tartıştıktan sonra varırlar. 
 Bu proje de adını onlardan alıyor: birden fazla model aynı soruyu acele etmeden, kendilerini ve birbirlerini sorgulayarak düşünür. 
+
+**Voltron** ise **Voltron**.
 
 ---
 

@@ -825,7 +825,7 @@ print(json.dumps(data))
             plan_file.write_text(json.dumps(plan))
             validate = lambda jobs: self.engine.runner.validate_jobs(jobs) and dict(ready=True)
             with patch.object(self.engine.runner, "preflight", side_effect=validate), \
-                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--check", "--plan",
+                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--black-lion", "claude", "--check", "--plan",
                                                str(plan_file), "--cwd", str(self.root)]), patch("builtins.print"):
                 self.assertEqual(self.engine.main(), 0)
             plan["lions"] = [dict(name="reviewer", tier="deep")]
@@ -835,7 +835,10 @@ print(json.dumps(data))
         self.global_config.write_text(json.dumps(dict(accounts=many)))
         self.assertEqual(len(self.engine.plan_jobs(dict(mode="same", task="t", lions=[dict(name="reviewer")]),
                                                    "claude", self.root)), 1)  # the cap counts lions that run
-        with self.assertRaisesRegex(ValueError, "at most 5"):
+        colored = lambda p: [j["color"] for j in self.engine.plan_jobs(p, "claude", self.root)]
+        two = dict(mode="same", task="t", lions=[dict(name="reviewer"), dict(name="one")])
+        self.assertEqual(colored(two), colored(json.loads(json.dumps(two))))  # --check and the run agree
+        with self.assertRaisesRegex(ValueError, "at most 4"):
             self.engine.plan_jobs(dict(mode="same", task="t"), "claude", self.root)
         # Antigravity: pools follow agy's own quota groups, read from a short local `agy acp` session when enabled.
         for model, pool in (("gemini-4-argon-high", "argon"), ("gemini-4-neon-high", "gemini"),
@@ -1058,7 +1061,7 @@ print(json.dumps(data))
                                                          "accounts": {"repo-owned": {"agent": "claude", "config_dir": "/"}}}))
         self.global_config.write_text(json.dumps({
             "accounts": {"codexwork": {"agent": "codex", "config_dir": str(self.root / "work"), "effort": "high"}}}))
-        names = lambda elder: [w["name"] for w in self.engine.voltron_lions(elder, repo)]
+        names = lambda black_lion: [w["name"] for w in self.engine.voltron_lions(black_lion, repo)]
         self.assertEqual(names("claude"), ["codex", "antigravity", "codexwork"])
         self.assertEqual(names("agy"), ["codex", "claude", "codexwork"])
         self.assertEqual(names("codexwork"), ["codex", "claude", "antigravity"])
@@ -1091,6 +1094,10 @@ print(json.dumps(data))
             summary = self.engine.voltron(task, "claude", repo, access="edit")
         jobs = {j["name"]: j for j in summary["jobs"]}
         self.assertEqual(sorted(jobs), ["antigravity", "codex", "codexwork"])
+        # Each lion takes one of Voltron's colours; the host is the Black Lion.
+        self.assertEqual(summary["black_lion"], "claude")
+        self.assertEqual(len({j["color"] for j in jobs.values()}), 3)
+        self.assertLessEqual({j["color"] for j in jobs.values()}, set(self.engine.LION_COLORS))
         self.assertTrue(jobs["codex"]["changed"])
         self.assertFalse(jobs["codexwork"]["changed"])
         self.assertIn(b"+limit = 10\r\n", Path(jobs["codex"]["diff_path"]).read_bytes())
@@ -1298,7 +1305,7 @@ print(json.dumps(data))
         (repo / "ui" / "b.py").write_text("b = 1\n")
         git("add", "-A")
         git("commit", "-qm", "init")
-        (repo / "types.py").write_text("Limit = int\n")  # the Elder's uncommitted shared scaffold
+        (repo / "types.py").write_text("Limit = int\n")  # the Black Lion's uncommitted shared scaffold
         status_before = git("status", "--porcelain")
         plan = self.root / "plan.json"
         plan.write_text(json.dumps(dict(mode="parts", task="Build the payment flow.", lions=[
@@ -1341,7 +1348,7 @@ print(json.dumps(data))
             with self.assertRaises(ValueError):
                 self.engine.load_plan(plan)
         plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="claude")])))
-        with self.assertRaisesRegex(ValueError, "not available"):  # the Elder is never a lion
+        with self.assertRaisesRegex(ValueError, "not available"):  # the Black Lion is never a lion
             self.engine.voltron(None, "claude", repo, plan_path=plan)
         plan.write_text(json.dumps(dict(mode="same", task="t", lions=[dict(name="codex"), dict(name="agy", model="claude-x")])))
         error = "CLI exited with code 3: Individual quota reached. Resets in 17h"
@@ -1408,7 +1415,7 @@ print(json.dumps(data))
             reset = self.engine.quota_time(until)
             with self.assertRaisesRegex(ValueError, "antigravity/claude.*" + reset):
                 self.engine.voltron(None, "claude", repo, plan_path=plan)
-            with patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--check", "--plan", str(plan),
+            with patch.object(sys, "argv", ["cogitor.py", "voltron", "--black-lion", "claude", "--check", "--plan", str(plan),
                                             "--cwd", str(repo)]), patch("builtins.print") as output:
                 self.assertEqual(self.engine.main(), 2)
                 self.assertIn(reset, output.call_args.args[0])
@@ -1488,7 +1495,7 @@ print(json.dumps(data))
         for statuses, code in ((("success", "failed"), 0), (("failed", "timeout"), 1)):
             outcome = dict(jobs=[dict(name=n, status=st) for n, st in zip(("codex", "antigravity"), statuses)])
             with patch.object(self.engine, "voltron", return_value=outcome), \
-                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--elder", "claude", "--plan", str(plan)]), \
+                    patch.object(sys, "argv", ["cogitor.py", "voltron", "--black-lion", "claude", "--plan", str(plan)]), \
                     patch("builtins.print"):
                 self.assertEqual(self.engine.main(), code)
 

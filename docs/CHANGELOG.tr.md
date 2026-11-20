@@ -2,6 +2,13 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
+## Yayınlanmadı
+
+### Değişenler
+- `/voltron` ve `/lions`'ta ana model artık Elder değil Siyah Aslan (Elder `/cogitors`'ta kalır). `cogitor.py voltron --elder` artık `--black-lion`; sonuçtaki `elder` alanı `black_lion` oldu.
+- Bir çalışmadaki her aslan Voltron'un renklerinden birini alır (kırmızı, sarı, yeşil, mavi); renkler plana göre karışır, `--check` ve sonuçlarda `color` olarak görünür; dağıtım satırları renkle başlar.
+- Aynı anda en fazla dört aslan çalışır: Siyah Aslan'la birlikte Voltron'u oluşturan beş aslan olurlar.
+
 ## 0.3.1
 
 ### Eklenenler
