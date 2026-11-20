@@ -11,6 +11,7 @@ import math
 import os
 from pathlib import Path
 import re
+import select
 import shutil
 import shlex
 import signal
@@ -20,6 +21,7 @@ import tempfile
 import threading
 import time
 import unicodedata
+import urllib.request
 import uuid
 
 import run as runner
@@ -2665,10 +2667,12 @@ def lion_config(cwd):
     usage = config.get("usage", {})
     if not isinstance(usage, dict):
         raise ValueError("config usage must be an object of {Claude lion: snapshot path}")
-    claude = {lion["name"] for lion in lions if lion["agent"] == "claude"}
+    agents = {lion["name"]: lion["agent"] for lion in lions}
     for name, path in usage.items():
-        if name not in claude or not isinstance(path, str) or not path.strip() or "\0" in path:
-            raise ValueError("usage %s needs a Claude lion name and a snapshot path" % name)
+        if agents.get(name) == "antigravity" and path == "acp":
+            continue  # read Antigravity's quota from a short local `agy acp` session
+        if agents.get(name) != "claude" or not isinstance(path, str) or not path.strip() or "\0" in path:
+            raise ValueError("usage %s needs a Claude lion and a snapshot path, or antigravity and \"acp\"" % name)
     routing = config.get("routing", {})
     if not isinstance(routing, dict):
         raise ValueError("config routing must be an object of tiers")
@@ -2722,14 +2726,26 @@ def voltron_lions(elder, cwd=None, exclude=()):
     return select_lions(lion_config(cwd)[0], elder, exclude)
 
 
+# Antigravity's own quota groups: Gemini, Argon on its own, and Claude together with GPT-OSS.
+AGY_POOLS = ("gemini", "argon", "claude")
+
+
 def quota_pool(lion):
+    """The quota a job draws on: the account, or for Antigravity its model's group (None when unknown).
+    agy's own model-to-group map, cached with its quota, comes first; the prefix rules are the fallback."""
     if lion["agent"] != "antigravity":
         return "account"
-    model = lion.get("model")
-    for family in ("claude", "gemini"):
-        if isinstance(model, str) and model.startswith(family + "-"):
-            return family
-    return "other"
+    model = lion.get("model") if isinstance(lion.get("model"), str) else ""
+    pool = agy_model_map().get(model)
+    if pool in AGY_POOLS:
+        return pool
+    if model.startswith("gemini-4-argon"):
+        return "argon"
+    if model.startswith("gemini-"):
+        return "gemini"
+    if model.startswith(("claude-", "gpt-oss-")):
+        return "claude"
+    return None
 
 
 def quota_window(limits, key, percent_key):
@@ -2812,8 +2828,179 @@ def codex_snapshot(home):
     return None, None, None, "none"
 
 
+def agy_groups(summary):
+    """The groups of Antigravity's RetrieveUserQuotaSummary, whatever shape it came in."""
+    response = summary.get("response") if isinstance(summary, dict) else None
+    groups = response.get("groups") if isinstance(response, dict) else None
+    return [g for g in groups if isinstance(g, dict)] if isinstance(groups, list) else []
+
+
+def agy_bucket_pool(bucket):
+    ident = bucket.get("bucketId") if isinstance(bucket, dict) else None
+    if not isinstance(ident, str):
+        return None
+    return "argon" if ident.startswith("gemini-argon") else "gemini" if ident.startswith("gemini") \
+        else "claude" if ident.startswith("3p") else None
+
+
+def agy_pools(summary):
+    """Antigravity's RetrieveUserQuotaSummary as {pool: (five_hour, seven_day)} windows in our form."""
+    pools = {}
+    for group in agy_groups(summary):
+        for bucket in group.get("buckets") if isinstance(group.get("buckets"), list) else []:
+            pool = agy_bucket_pool(bucket)
+            if pool is None:
+                continue
+            slot = {"5h": 0, "weekly": 1}.get(bucket.get("window"))
+            left = bucket.get("remainingFraction")
+            if slot is None or type(left) not in (int, float) or not 0 <= left <= 1:
+                continue
+            try:
+                reset = parse_iso(bucket.get("resetTime") or "")
+            except (ValueError, OverflowError, OSError):
+                continue
+            pools.setdefault(pool, [None, None])[slot] = dict(used_percent=round((1 - left) * 100, 2), resets_at=reset)
+    return {pool: tuple(windows) for pool, windows in pools.items()}
+
+
+def model_name_key(name):
+    """A display name without its trailing effort word: "Gemini 4 Neon (High)" -> "gemini 4 neon"."""
+    name = re.sub(r"\s*\((?:low|medium|high|xhigh)\)\s*$", "", name.strip(), flags=re.I)
+    return " ".join(name.split()).lower()
+
+
+def agy_model_pools(summary, models):
+    """{model id: pool}: each group's description names its models ("Models within this group: A, B"),
+    and `agy models` gives each id its display name, so a new model lands in its group by itself.
+    A model in no group, or named in groups of different pools, is left out."""
+    names, unlisted = {}, set()
+    for group in agy_groups(summary):
+        buckets = group.get("buckets")
+        pools = {agy_bucket_pool(b) for b in buckets} - {None} if isinstance(buckets, list) else set()
+        description = group.get("description")
+        if len(pools) != 1 or not isinstance(description, str):
+            continue
+        if ":" not in description:
+            unlisted |= pools  # no model list (agy's Argon group): match the pool's name in display names
+            continue
+        listed = description.split(":", 1)[1]
+        for name in listed.split(","):
+            key = model_name_key(re.sub(r"^\s*and\s+", "", name).strip().rstrip("."))
+            if key:
+                names.setdefault(key, set()).update(pools)
+    found = {}
+    for ident, display in models or []:
+        pools = names.get(model_name_key(display)) or {p for p in unlisted if re.search(r"\b%s\b" % p, display, re.I)}
+        if len(pools) == 1:
+            found[ident] = next(iter(pools))
+    return found
+
+
+def agy_model_map():
+    """The model map cached beside agy's quota, whatever its age: groups change far less often than quota."""
+    try:
+        models = read_json(GLOBAL_CONFIG_PATH.with_name("agy-quota.json")).get("models")
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return {k: v for k, v in models.items() if isinstance(k, str) and v in AGY_POOLS} \
+        if isinstance(models, dict) else {}
+
+
+def agy_request(process, message, ident, deadline):
+    """Send one ACP request to agy and return its reply, skipping notifications; None on timeout or EOF."""
+    process.stdin.write((json.dumps(dict(message, jsonrpc="2.0", id=ident)) + "\n").encode())
+    process.stdin.flush()
+    while time.time() < deadline:
+        ready, _, _ = select.select([process.stdout], [], [], max(0, deadline - time.time()))
+        line = process.stdout.readline() if ready else b""
+        if not line:
+            return None
+        try:
+            reply = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(reply, dict) and reply.get("id") == ident:
+            return reply
+    return None
+
+
+def fetch_agy_quota(timeout=30):
+    """Ask a briefly started `agy acp` session for its own quota summary: no model call, no token read.
+    Its local language server answers RetrieveUserQuotaSummary; the empty session it creates is removed."""
+    agy = shutil.which("agy")
+    if not agy:
+        return None
+    scratch = Path(tempfile.mkdtemp(prefix="cogitors-agy-"))
+    log = scratch / "agy.log"
+    process = subprocess.Popen([agy, "--log-file", str(log), "acp"], cwd=scratch, stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True,
+                               bufsize=0)  # unbuffered, so select() sees every reply line
+    session = None
+    deadline = time.time() + timeout
+    try:
+        if not agy_request(process, dict(method="initialize", params=dict(protocolVersion=1, clientCapabilities={})),
+                           1, deadline):
+            return None
+        reply = agy_request(process, dict(method="session/new", params=dict(cwd=str(scratch), mcpServers=[])), 2, deadline)
+        session = (reply or {}).get("result", {}).get("sessionId")
+        found = None
+        while not found and time.time() < deadline:  # agy logs the plain-HTTP port of its language server
+            found = re.search(r"listening on random port at (\d+) for HTTP$",
+                              log.read_text(errors="replace") if log.exists() else "", re.M)
+            if not found:
+                time.sleep(0.2)
+        if not found:
+            return None
+        port = int(found[1])
+        request = urllib.request.Request(
+            "http://127.0.0.1:%d/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary" % port,
+            data=b"{}", method="POST", headers={"Content-Type": "application/json", "Connect-Protocol-Version": "1"})
+        with urllib.request.urlopen(request, timeout=max(1, deadline - time.time())) as response:
+            return json.loads(response.read())
+    except (OSError, ValueError):
+        return None
+    finally:
+        process.kill()
+        process.wait()
+        shutil.rmtree(scratch, ignore_errors=True)
+        if isinstance(session, str) and re.fullmatch(r"[0-9a-f-]{36}", session):
+            root = Path.home() / ".gemini" / "antigravity-cli"
+            for suffix in (".db", ".db-wal", ".db-shm"):  # the session database and its SQLite side files
+                (root / "conversations" / (session + suffix)).unlink(missing_ok=True)
+            brain = root / "brain" / session
+            if brain.is_dir() and not any(p.is_file() for p in brain.rglob("*")):
+                shutil.rmtree(brain, ignore_errors=True)  # only our own session, and only while it is empty
+
+
+def agy_quota(now):
+    """Antigravity pools, from a cache younger than five minutes, else freshly from agy.
+    A fresh fetch also maps each listed model to its pool; a failed model list keeps the pools, map empty."""
+    cache = GLOBAL_CONFIG_PATH.with_name("agy-quota.json")
+    try:
+        data = read_json(cache)
+        if now - data["fetched"] < 300:
+            return {pool: tuple(windows) for pool, windows in data["pools"].items()}, data["fetched"]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    summary = fetch_agy_quota()
+    if summary is None:
+        return None, None
+    pools = agy_pools(summary)
+    models = agy_model_pools(summary, fetch_antigravity_models())
+    cache.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temp = tempfile.mkstemp(dir=cache.parent)
+    with os.fdopen(fd, "w", encoding="utf-8") as out:
+        json.dump(dict(fetched=now, pools=pools, models=models), out)
+    os.replace(temp, cache)
+    return pools, now
+
+
 def quota_snapshot(lion, usage):
     try:
+        if lion["agent"] == "antigravity" and usage.get(lion["name"]) == "acp":
+            pools, fetched = agy_quota(time.time())
+            # One snapshot per pool; quota_entry picks the pool it is asked about.
+            return {pool: (five, seven, fetched, "agy-acp") for pool, (five, seven) in (pools or {}).items()}
         if lion["agent"] == "codex":
             # Like the runner, the built-in Codex lion is the default account, whatever CODEX_HOME says.
             home = lion.get("config_dir") or DEFAULT_ACCOUNT_DIRS["codex"]
@@ -2956,6 +3143,8 @@ def record_cooldown(lion, error, now=None):
 
 
 def quota_entry(lion, pool, snapshot, cooldowns, now):
+    if isinstance(snapshot, dict):  # Antigravity: a snapshot per pool
+        snapshot = snapshot.get(pool, (None, None, None, "none"))
     five, seven, seen, source = snapshot
     until = cooldowns.get(lion["name"] + "/" + pool, {}).get("until", 0)
     active = [w["used_percent"] for w in (five, seven) if w and w["resets_at"] > now]
@@ -2973,7 +3162,7 @@ def quota_entry(lion, pool, snapshot, cooldowns, now):
 
 def lion_pools(lion):
     """The pools a job draws on; an Antigravity lion without a model may use any of them."""
-    return (quota_pool(lion),) if lion["agent"] != "antigravity" or lion.get("model") else ("claude", "gemini", "other")
+    return (quota_pool(lion),) if quota_pool(lion) else AGY_POOLS
 
 
 def quota_report(cwd):
@@ -2984,7 +3173,7 @@ def quota_report(cwd):
     snapshots = {lion["name"]: quota_snapshot(lion, usage) for lion in lions}  # read once, so both sections agree
     for lion in lions:
         snapshot = snapshots[lion["name"]]
-        pools = ("claude", "gemini", "other") if lion["agent"] == "antigravity" else ("account",)
+        pools = AGY_POOLS if lion["agent"] == "antigravity" else ("account",)
         entries.extend(quota_entry(lion, pool, snapshot, cooldowns, now) for pool in pools)
     # Each ordered fallback list with every step's state, so the Elder takes the first one not exhausted.
     by_name = {lion["name"]: lion for lion in lions}
@@ -2998,7 +3187,8 @@ def quota_report(cwd):
                 states = [quota_entry(job, pool, snapshots[job["name"]], cooldowns, now)["state"]
                           for pool in lion_pools(job)]
                 fallbacks[tier].append(dict(item, state="exhausted" if "exhausted" in states else states[0]))
-    return dict(lions=entries, routing=routing, fallbacks=fallbacks)
+    # Which Antigravity model draws on which pool, as agy itself groups them.
+    return dict(lions=entries, routing=routing, fallbacks=fallbacks, agy_models=agy_model_map())
 
 
 def quota_time(epoch):
@@ -3024,6 +3214,11 @@ def print_quota(report):
         print("%s: %s" % (name, " | ".join(pools)))
     for tier, steps in report.get("fallbacks", {}).items():
         print("fallback %s: %s" % (tier, " -> ".join("%s %s" % (s["lion"], s["state"]) for s in steps)))
+    pools = {}
+    for model, pool in sorted(report.get("agy_models", {}).items()):
+        pools.setdefault(pool, []).append(model)
+    if pools:
+        print("antigravity models: %s" % " | ".join("%s %s" % (p, ", ".join(m)) for p, m in sorted(pools.items())))
 
 
 def git(cwd, *args, raw=False, index=None, config=()):
@@ -3136,8 +3331,8 @@ def plan_jobs(plan, elder, cwd, exclude=()):
                 job.update(routing[tier][job["agent"]])
         job.update({k: entry[k] for k in ("model", "effort") if k in entry})
         # An Antigravity lion without a model runs on agy's own default, whose family is unknown here.
+        snapshot = quota_snapshot(job, usage)  # first: a fresh agy fetch also refreshes its model map
         pools = lion_pools(job)
-        snapshot = quota_snapshot(job, usage)
         skip = False
         for pool in pools:
             quota = quota_entry(job, pool, snapshot, cooldowns, now)
@@ -3257,10 +3452,49 @@ def voltron(task_path, elder, cwd, access="review", timeout=900, exclude=(), pla
     return summary
 
 
-def log_runs(mode, jobs, results, entries, tiers):
-    """One line per lion in ~/.cogitors/runs.jsonl: settings, outcome and time; never prompts, answers or errors."""
+def append_runs(lines):
+    """Append lines to ~/.cogitors/runs.jsonl, a private file."""
     path = GLOBAL_CONFIG_PATH.with_name("runs.jsonl")
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as log:
+        log.write("".join(lines))
+
+
+PROPOSAL_KINDS = ("voltron", "lions")
+PROPOSAL_ANSWERS = ("accepted", "declined")
+
+
+def log_proposal(kind, answer):
+    """One line per /voltron or /lions proposal and the user's answer, to tune the proposal threshold by data."""
+    if kind not in PROPOSAL_KINDS or answer not in PROPOSAL_ANSWERS:
+        raise ValueError("proposal needs --kind voltron|lions and --answer accepted|declined")
+    record = dict(time=int(time.time()), type="proposal", kind=kind, answer=answer)
+    append_runs([json.dumps(record) + "\n"])
+    return dict(logged=record)
+
+
+def proposals_summary():
+    """Per kind: how often it was proposed and how often the user accepted."""
+    path = GLOBAL_CONFIG_PATH.with_name("runs.jsonl")
+    counts = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if path.is_file() else []:
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("type") != "proposal" or \
+                record.get("kind") not in PROPOSAL_KINDS or record.get("answer") not in PROPOSAL_ANSWERS:
+            continue
+        count = counts.setdefault(record["kind"], [0, 0])
+        count[0] += 1
+        count[1] += record["answer"] == "accepted"
+    return {kind: dict(proposed=n, accepted=yes, acceptance_rate=round(yes / n, 2))
+            for kind, (n, yes) in sorted(counts.items())}
+
+
+def log_runs(mode, jobs, results, entries, tiers):
+    """One line per lion in ~/.cogitors/runs.jsonl: settings, outcome and time; never prompts, answers or errors."""
     now = int(time.time())
     lines = []
     for job, result, entry in zip(jobs, results, entries):
@@ -3270,9 +3504,7 @@ def log_runs(mode, jobs, results, entries, tiers):
         if entry.get("quota"):
             record["quota"] = True
         lines.append(json.dumps(record, ensure_ascii=False) + "\n")
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    with os.fdopen(descriptor, "a", encoding="utf-8") as log:
-        log.write("".join(lines))
+    append_runs(lines)
 
 
 def usage_counters(usage):
@@ -3611,6 +3843,9 @@ def main():
 
     met_cmd = sub.add_parser("metrics", help="summarize time and calls across local finished sessions")
     met_cmd.add_argument("--dir", type=Path, default=Path.cwd() / "docs" / "cogitors")
+    prop_cmd = sub.add_parser("proposal", help="log a /voltron or /lions proposal and the user's answer")
+    prop_cmd.add_argument("--kind", choices=PROPOSAL_KINDS, required=True)
+    prop_cmd.add_argument("--answer", choices=PROPOSAL_ANSWERS, required=True)
     vol_cmd = sub.add_parser("voltron", help="give one task to every lion except the Elder")
     vol_cmd.add_argument("--elder", required=True, help="the host's own lion name (codex, claude, agy or an account)")
     vol_cmd.add_argument("--file", type=Path, help="one task every lion does (or use --plan)")
@@ -3669,7 +3904,9 @@ def main():
         elif args.command == "export-html":
             result = export_html_cmd(args.run_dir)
         elif args.command == "metrics":
-            result = dict(metrics_summary(args.dir), lions=runs_summary())
+            result = dict(metrics_summary(args.dir), lions=runs_summary(), proposals=proposals_summary())
+        elif args.command == "proposal":
+            result = log_proposal(args.kind, args.answer)
         elif args.command == "voltron":
             if args.check:
                 plan = load_plan(args.plan) if args.plan else dict(mode="same", task="check")

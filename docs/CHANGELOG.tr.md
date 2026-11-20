@@ -2,6 +2,22 @@
 
 🇬🇧 [English](../CHANGELOG.md)
 
+## Yayınlanmadı
+
+### Eklenenler
+- Antigravity kotası: `"usage": {"antigravity": "acp"}` ile `cogitors quota`, agy'nin 5 saatlik ve haftalık pencerelerini kısa bir yerel `agy acp` oturumundan okur (model çağrısı yok, token okunmaz, geride konuşma kalmaz); sonuç beş dakika önbellekte tutulur.
+- Öneri kaydı: `cogitors proposal --kind voltron|lions --answer accepted|declined` her `/voltron` ya da `/lions` önerisini ve yanıtı kaydeder; `cogitors metrics` bunları `proposals` altında özetler.
+
+### Değişenler
+- `/voltron` ve `/lions` her işte tartılır ve gerekçe ile aslan planıyla önerilir (yine önce sorulur).
+- Kesin bir kota hatasından sonra `/codex`, `/claude` ve `/antigravity`, sormadan bir kez kotası olan başka bir yetkin modele, hesaba ya da CLI'ya geçer ve bunu söyler; zaman aşımı ve diğer hatalar yine hiç yeniden denenmez. Aslanlar da aynı şekilde devredilir. `cogitors` katı kalır.
+- Aslan seçimi: simülatör ya da arayüz gerektiren iş ona erişebilen aslana gider, inceleme başka model ailesini tercih eder, kotası azalan Elder işin daha çoğunu kotası olan aslanlara verir.
+- Antigravity havuzları agy'nin kendi kota gruplarını izler: `gemini`, `argon` (ayrı) ve `claude` (Claude ve GPT-OSS); eski `other` havuzu kaldırıldı.
+- Önce kotaya göre aslan seçimi: Elder kotası tükenen aslanları atlar, penceresi en erken yenilenen kotası müsait ajanı tercih eder (haftalık pencereler 5 saatliklerden önce, `unknown` en sonda gelir), yetkinliği yalnızca işi hiç yapamayan ajanları elemek için kullanır ve model ile effort'u işin boyutuna ve riskine göre canlı `cogitors models` listesinden seçer (`routing` yedek listeleri yine önceliklidir).
+- Elder kota yedeği: Elder Voltron oluşturmadan ya da aslanları göndermeden önce iş için kendi yönetim payını tahmin eder, bunu kalan kotasıyla birlikte planda belirtir, kotası bu payın altındaysa ya da bilinmiyorsa birleştirme ve doğrulamayı da bir aslana devreder ve kısa yapılandırılmış raporlarla kendi kullanımını düşük tutar.
+- `cogitors`, kullanıcıya model ve effort seçtirirken seçeneklerin yanında `cogitors quota` çıktısını gösterir; ancak katı kalır (kendiliğinden model değiştirmez).
+- Antigravity model–kota grubu eşlemesi sabit model adları yerine doğrudan agy'nin kendi kota özetinden ve `agy models` görünen adlarından türetilir.
+
 ## 0.3.0
 
 ### Eklenenler

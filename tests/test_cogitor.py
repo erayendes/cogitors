@@ -837,6 +837,82 @@ print(json.dumps(data))
                                                    "claude", self.root)), 1)  # the cap counts lions that run
         with self.assertRaisesRegex(ValueError, "at most 5"):
             self.engine.plan_jobs(dict(mode="same", task="t"), "claude", self.root)
+        # Antigravity: pools follow agy's own quota groups, read from a short local `agy acp` session when enabled.
+        for model, pool in (("gemini-4-argon-high", "argon"), ("gemini-4-neon-high", "gemini"),
+                            ("claude-opus-5-5-high", "claude"), ("gpt-oss-120b-medium", "claude"), (None, None)):
+            self.assertEqual(self.engine.quota_pool(dict(agent="antigravity", model=model)), pool)
+        summary = {"response": {"groups": [
+            {"buckets": [{"bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.25,
+                          "resetTime": "2027-01-20T00:00:00Z"},
+                         {"bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0, "resetTime": "2027-01-15T09:00:00Z"}]},
+            {"buckets": [{"bucketId": "3p-weekly", "window": "weekly", "remainingFraction": 1, "resetTime": "2027-01-21T00:00:00Z"}]},
+            {"buckets": [{"bucketId": "gemini-argon-wtu-weekly", "window": "weekly", "remainingFraction": 2,
+                          "resetTime": "2027-01-21T00:00:00Z"},
+                         {"bucketId": "mystery", "window": "5h", "remainingFraction": 0.5, "resetTime": "2027-01-15T09:00:00Z"}]}]}}
+        pools = self.engine.agy_pools(summary)
+        self.assertEqual(pools["gemini"], (dict(used_percent=100, resets_at=now + 3600),
+                                           dict(used_percent=75.0, resets_at=now + 5 * 86400 - 8 * 3600)))
+        self.assertEqual(pools["claude"], (None, dict(used_percent=0, resets_at=now + 6 * 86400 - 8 * 3600)))
+        self.assertNotIn("argon", pools)  # a fraction outside 0..1 is not data
+        # Each group's description names its models; `agy models` names each id, the effort word aside.
+        groups = summary["response"]["groups"]
+        groups[0]["description"] = "Models within this group: Gemini 4 Neon, Orchestrator (Neon), Gemini 3.8 Flash."
+        groups[1]["description"] = "Models within this group: Claude Opus 5.5, GPT-OSS 120B"
+        groups[2]["description"] = "For paid Pro plans, Argon quota is separate."  # no list: the pool name decides
+        groups.append({"buckets": [{"bucketId": "3p-5h"}]})  # a group without a description maps nothing
+        listed = [("gemini-4-neon-high", "Gemini 4 Neon (High)"), ("orchestrator-neon-low", "Orchestrator (Neon) (Low)"),
+                  ("gemini-4-orchestrator-argon-xhigh", "Orchestrator (Argon) (XHigh)"),
+                  ("claude-opus-5-5", "Claude Opus 5.5"), ("experimental-x-medium", "Experimental X (Medium)"),
+                  ("gemini-4-argon-high", "Gemini 4 Argon (High)")]
+        mapped = {"gemini-4-neon-high": "gemini", "orchestrator-neon-low": "gemini",
+                  "gemini-4-orchestrator-argon-xhigh": "argon", "claude-opus-5-5": "claude", "gemini-4-argon-high": "argon"}
+        self.assertEqual(self.engine.agy_model_pools(summary, listed), mapped)  # Experimental X is in no group
+        self.assertEqual(self.engine.agy_model_pools(summary, None), {})
+        self.assertEqual(self.engine.agy_model_pools({"response": {"groups": groups[3:]}}, listed), {})
+        twice = json.loads(json.dumps(summary))
+        twice["response"]["groups"][1]["description"] += ", Gemini 4 Neon"  # named in two pools: left out
+        self.assertNotIn("gemini-4-neon-high", self.engine.agy_model_pools(twice, listed))
+        self.assertEqual(self.engine.agy_pools(summary), pools)
+        argon_like = dict(agent="antigravity", model="gemini-4-orchestrator-argon-xhigh")
+        self.assertEqual(self.engine.quota_pool(argon_like), "gemini")  # the prefix rule alone misplaces it
+        self.global_config.write_text(json.dumps(dict(accounts=accounts, usage=dict(antigravity="acp"))))
+        cache = self.global_config.with_name("agy-quota.json")
+        with patch.object(self.engine, "fetch_agy_quota", return_value=summary) as fetch, \
+                patch.object(self.engine, "fetch_antigravity_models", return_value=listed) as names, \
+                patch.object(self.engine.time, "time", return_value=now):
+            report = self.engine.quota_report(self.root)
+            states = {e["pool"]: e for e in report["lions"] if e["agent"] == "antigravity"}
+            self.assertEqual((states["gemini"]["state"], states["gemini"]["source"]), ("exhausted", "agy-acp"))
+            self.assertEqual((states["claude"]["state"], states["argon"]["state"]), ("ok", "unknown"))
+            self.assertEqual(report["agy_models"], mapped)
+            self.assertEqual(json.loads(cache.read_text())["models"], mapped)
+            with patch("builtins.print") as output:
+                self.engine.print_quota(report)
+            self.assertIn("antigravity models: argon gemini-4-argon-high, gemini-4-orchestrator-argon-xhigh | claude claude-opus-5-5 | "
+                          "gemini gemini-4-neon-high, orchestrator-neon-low", output.call_args.args[0])
+            self.engine.quota_report(self.root)
+            self.assertEqual((fetch.call_count, names.call_count), (1, 1))  # agy is asked at most once in five minutes
+            # The cached map comes first, then the prefix rules, then None (every pool).
+            self.assertEqual(self.engine.quota_pool(argon_like), "argon")
+            self.assertEqual(self.engine.quota_pool(dict(agent="antigravity", model="gemini-3.8-flash-high")), "gemini")
+            self.assertIsNone(self.engine.quota_pool(dict(agent="antigravity", model="experimental-x-medium")))
+            self.assertEqual(self.engine.lion_pools(argon_like), ("argon",))
+        # A failed model list keeps the pools and leaves the map empty.
+        with patch.object(self.engine, "fetch_agy_quota", return_value=summary) as fetch, \
+                patch.object(self.engine, "fetch_antigravity_models", return_value=None), \
+                patch.object(self.engine.time, "time", return_value=now + 301):
+            report = self.engine.quota_report(self.root)
+            self.assertEqual(fetch.call_count, 1)
+            self.assertEqual(report["agy_models"], {})
+            self.assertEqual({e["pool"]: e["state"] for e in report["lions"] if e["agent"] == "antigravity"},
+                             dict(gemini="exhausted", argon="unknown", claude="ok"))
+            self.assertEqual(self.engine.quota_pool(argon_like), "gemini")
+        cache.write_text("{damaged")
+        self.assertEqual(self.engine.agy_model_map(), {})
+        for usage in (dict(antigravity="~/x.json"), dict(codex="acp"), dict(extra="acp")):
+            self.global_config.write_text(json.dumps(dict(accounts=accounts, usage=usage)))
+            with self.subTest(usage=usage), self.assertRaises(ValueError):
+                self.engine.quota_report(self.root)
         for bad in ([], [dict(lion="nobody")], [dict(lion="codex"), dict(lion="codex")], [dict(lion="codex", extra=1)],
                     [dict(lion=["codex"])]):
             self.global_config.write_text(json.dumps(dict(accounts=accounts, routing=dict(deep=bad))))
@@ -1362,7 +1438,7 @@ print(json.dumps(data))
                 self.engine.plan_jobs(unset, "claude", repo)
             # A failure without a model may have used any pool, so it blocks all three.
             self.engine.record_cooldown(dict(name="antigravity", agent="antigravity"), "RESOURCE_EXHAUSTED")
-            self.assertTrue({"antigravity/claude", "antigravity/gemini", "antigravity/other"} <=
+            self.assertTrue({"antigravity/claude", "antigravity/gemini", "antigravity/argon"} <=
                             set(json.loads(ledger.read_text())["cooldowns"]))
             self.assertEqual(self.global_config.with_name("quota.lock").stat().st_mode & 0o777, 0o600)
         self.engine.voltron_clean(summary["run_dir"])
@@ -1374,12 +1450,33 @@ print(json.dumps(data))
                     dict(name=j["name"], agent=j["agent"], status="failed", error=throttle) for j in jobs]):
             throttled = self.engine.voltron(None, "claude", repo, plan_path=plan)
         self.assertFalse(any(j.get("quota") for j in throttled["jobs"]))
+        # Each /voltron or /lions proposal and the user's answer goes to the same private log.
+        runs = self.global_config.with_name("runs.jsonl")
+        for kind, answer in (("voltron", "accepted"), ("voltron", "declined"), ("lions", "accepted")):
+            with patch.object(sys, "argv", ["cogitor.py", "proposal", "--kind", kind, "--answer", answer]), \
+                    patch.object(self.engine.time, "time", return_value=until + 7300), patch("builtins.print"):
+                self.assertEqual(self.engine.main(), 0)
+        self.assertEqual(json.loads(runs.read_text().splitlines()[-1]),
+                         dict(time=until + 7300, type="proposal", kind="lions", answer="accepted"))
+        self.assertEqual(runs.stat().st_mode & 0o777, 0o600)
+        for kind, answer in (("cogitors", "accepted"), ("voltron", "maybe")):
+            with self.subTest(kind=kind, answer=answer):
+                with self.assertRaises(ValueError):
+                    self.engine.log_proposal(kind, answer)
+                with patch.object(sys, "argv", ["cogitor.py", "proposal", "--kind", kind, "--answer", answer]), \
+                        patch("sys.stderr"), self.assertRaises(SystemExit):
+                    self.engine.main()
+        with runs.open("a") as log:  # damaged or foreign lines are skipped
+            log.write('{"type": "proposal", "kind": "voltron"}\n[1]\n{"type": "proposal", "kind": "x", "answer": "accepted"}\n')
         self.assertEqual(self.engine.runs_summary()["antigravity/claude-x"],
                          dict(runs=2, avg_seconds=None, success_rate=0.0, quota_rate=0.5))
         with patch.object(sys, "argv", ["cogitor.py", "metrics", "--dir", str(self.root / "none")]), \
                 patch("builtins.print") as output:
             self.assertEqual(self.engine.main(), 0)
-        self.assertIn("antigravity/claude-x", json.loads(output.call_args.args[0])["lions"])
+        metrics = json.loads(output.call_args.args[0])
+        self.assertIn("antigravity/claude-x", metrics["lions"])
+        self.assertEqual(metrics["proposals"], dict(lions=dict(proposed=1, accepted=1, acceptance_rate=1.0),
+                                                    voltron=dict(proposed=2, accepted=1, acceptance_rate=0.5)))
         # Only numeric top-level counters reach disk; nested text from a provider never does.
         self.assertEqual(self.engine.usage_counters({"input_tokens": 4, "geo": "global",
                                                      "diagnostic": {"prompt": "secret"}}), {"input_tokens": 4})

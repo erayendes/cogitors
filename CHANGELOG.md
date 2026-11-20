@@ -2,6 +2,22 @@
 
 🇹🇷 [Türkçe](docs/CHANGELOG.tr.md)
 
+## Unreleased
+
+### Added
+- Antigravity quota: with `"usage": {"antigravity": "acp"}`, `cogitors quota` reads agy's 5-hour and weekly windows from a short local `agy acp` session (no model call, no token read, no leftover conversation), cached for five minutes.
+- Proposal logging: `cogitors proposal --kind voltron|lions --answer accepted|declined` records each `/voltron` or `/lions` proposal and answer, and `cogitors metrics` summarizes them under `proposals`.
+
+### Changed
+- `/voltron` and `/lions` are weighed on every task and proposed with a reason and a lion plan (still asking first).
+- After a definite quota error, `/codex`, `/claude` and `/antigravity` rerun once, without asking, on another capable model, account or CLI with room and say so; timeouts and other errors still never retry. Lions are reassigned the same way. `cogitors` stays strict.
+- Lion selection: work that needs a simulator or GUI goes to a lion that can reach it, reviews prefer another model family, and an Elder low on quota hands more work to lions with room.
+- Antigravity pools follow agy's own quota groups: `gemini`, `argon` (separate) and `claude` (Claude and GPT-OSS); the old `other` pool is gone.
+- Quota-first lion selection: the Elder skips exhausted lions, prefers the agent with room whose window resets soonest (weekly windows ahead of 5-hour ones, `unknown` last), uses capability only to exclude agents that cannot do the work at all, and picks model and effort from the live `cogitors models` list by work size and risk (`routing` fallback lists still win).
+- Elder quota reserve: before forming Voltron or sending lions, the Elder estimates its own management share for the job, states it with its remaining quota in the plan, hands joining and verification to a lion when below that share or unknown, and keeps its own use low with short structured reports.
+- `cogitors` shows `cogitors quota` beside model and effort choices when asking the user, while staying strict (never switching models on its own).
+- Antigravity model-to-quota-group mapping is derived dynamically from agy's own quota summary and `agy models` display names rather than hard-coded model names.
+
 ## 0.3.0
 
 ### Added

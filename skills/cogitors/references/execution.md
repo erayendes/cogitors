@@ -34,7 +34,7 @@ Write JSON using the host's file tool; do not interpolate a raw prompt into shel
 python3 /actual/installed-skill/scripts/run.py /path/job.json
 ```
 
-Use the host's background mechanism for long calls. Stdout returns paths and statuses; read the saved result's `response` and relevant metadata, not the complete event log. Results include requested model/effort (null means inherited, not a verified effective model), session ID, usage if supplied, exit code and a request hash. CLI success requires both successful exit and valid structured completion. Malformed, empty or error responses fail closed. There are no automatic retries or provider/account switches.
+Use the host's background mechanism for long calls. Stdout returns paths and statuses; read the saved result's `response` and relevant metadata, not the complete event log. Results include requested model/effort (null means inherited, not a verified effective model), session ID, usage if supplied, exit code and a request hash. CLI success requires both successful exit and valid structured completion. Malformed, empty or error responses fail closed. The runner itself never retries or switches provider or account; after a definite quota error, the calling skill decides whether to rerun elsewhere (cogitors never does).
 
 `access: review` is the default. `edit` is only for explicitly authorized work and file ownership. `context_only: true` means all necessary evidence is in the prompt and cannot combine with edit. It runs the CLI in an empty temporary directory instead of `cwd`, disables Claude tools/MCP and instructs all providers to use supplied context only. Those instructions are not a universal OS sandbox. No task may delegate recursively.
 
